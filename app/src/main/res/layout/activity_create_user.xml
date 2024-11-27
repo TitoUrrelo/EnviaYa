@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".CreateUserActivity">
+
+    <!-- Toolbar -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorPrimary"
+        android:title="Crear Usuario"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Botones para alternar entre formularios -->
+    <LinearLayout
+        android:id="@+id/buttonContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/btnAdmin"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Crear Admin" />
+
+        <Button
+            android:id="@+id/btnConductor"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Crear Conductor" />
+    </LinearLayout>
+
+    <!-- Contenedor para el formulario de administrador -->
+    <LinearLayout
+        android:id="@+id/adminForm"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/buttonContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <EditText
+            android:id="@+id/nombreAdminEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nombre" />
+
+        <EditText
+            android:id="@+id/correoAdminEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Correo" />
+
+        <EditText
+            android:id="@+id/telefonoAdminEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Teléfono" />
+
+        <!-- El campo de contraseña ha sido eliminado, ya que no es necesario para la creación del usuario -->
+
+        <TextView
+            android:id="@+id/infoAdminText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="El administrador no necesita asignar una contraseña. El usuario recibirá un correo de verificación."
+            android:layout_marginTop="10dp"
+            android:textSize="14sp"
+            android:textColor="#757575" />
+
+        <Button
+            android:id="@+id/crearAdminButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Crear Administrador"
+            app:layout_constraintTop_toBottomOf="@+id/telefonoAdminEditText"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+    </LinearLayout>
+
+    <!-- Contenedor para el formulario de conductor -->
+    <LinearLayout
+        android:id="@+id/conductorForm"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/buttonContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <EditText
+            android:id="@+id/nombreConductorEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nombre" />
+
+        <EditText
+            android:id="@+id/correoConductorEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Correo" />
+
+        <EditText
+            android:id="@+id/telefonoConductorEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Teléfono" />
+
+        <EditText
+            android:id="@+id/matriculaEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Matrícula Vehículo" />
+
+        <EditText
+            android:id="@+id/licenciaEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Tipo de Licencia" />
+
+        <!-- El campo de contraseña ha sido eliminado para el conductor -->
+
+        <TextView
+            android:id="@+id/infoConductorText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="El conductor no necesita asignar una contraseña. El usuario recibirá un correo de verificación."
+            android:layout_marginTop="10dp"
+            android:textSize="14sp"
+            android:textColor="#757575" />
+
+        <Button
+            android:id="@+id/crearConductorButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Crear Conductor"
+            app:layout_constraintTop_toBottomOf="@+id/licenciaEditText"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

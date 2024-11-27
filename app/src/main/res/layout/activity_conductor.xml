@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- Título o encabezado -->
+    <TextView
+        android:id="@+id/encabezadoConductor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Paquetes Asignados"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- RecyclerView para mostrar la lista de paquetes asignados -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/asignacionPaqueteRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:layout_weight="1"
+        android:scrollbars="vertical" />
+
+    <!-- Botón para aceptar todos los paquetes y cambiarlos a 'en tránsito' -->
+    <Button
+        android:id="@+id/btnAceptarPaquetes"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Aceptar Todos los Paquetes"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="12dp" /> <!-- Cambia el color según tu preferencia -->
+
+    <!-- Botón para ver detalles del paquete -->
+    <Button
+        android:id="@+id/botonVerDetalles"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Ver Detalles"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="12dp"
+        android:visibility="gone"/> <!-- Oculto por defecto, se muestra según la selección del paquete -->
+
+    <!-- Botón para confirmar la entrega -->
+    <Button
+        android:id="@+id/botonConfirmarEntrega"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Confirmar Entrega"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"/> <!-- Oculto por defecto, se muestra cuando el paquete es seleccionado -->
+
+</LinearLayout>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "263689913328",
+    "project_id": "enviaya-2414f",
+    "storage_bucket": "enviaya-2414f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:263689913328:android:3df85ad45c26020d959335",
+        "android_client_info": {
+          "package_name": "com.example.enviaya"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRwGtiYMVSH-Ek8540movZJpYYUI6Y0Ec"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

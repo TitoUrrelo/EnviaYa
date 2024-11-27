@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".AdminActivity"
+    android:padding="16dp">
+
+    <!-- Título o texto superior para identificar la actividad -->
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Admin - Asignar Paquetes"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/paqueteRecyclerView2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:paddingTop="24dp"
+        android:paddingBottom="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"/>
+
+    <!-- RecyclerView para mostrar los paquetes pendientes -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/paqueteRecyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/conductorSpinner"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView2" />
+
+    <!-- Spinner para seleccionar el conductor -->
+    <Spinner
+        android:id="@+id/conductorSpinner"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/paqueteRecyclerView"
+        android:layout_marginTop="16dp"
+        android:padding="8dp" />
+
+    <!-- Botón para asignar el paquete al conductor -->
+    <Button
+        android:id="@+id/asignarPaqueteButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Asignar Paquete"
+        app:layout_constraintBottom_toTopOf="@+id/btnAddPackage"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/conductorSpinner"
+        android:layout_marginTop="16dp"
+        android:padding="12dp"
+        android:textSize="16sp"/>
+
+    <!-- Botón para agregar un nuevo paquete -->
+    <Button
+        android:id="@+id/btnAddPackage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Agregar Paquete"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/asignarPaqueteButton"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="32dp"
+        android:padding="12dp"
+        android:textSize="16sp"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
