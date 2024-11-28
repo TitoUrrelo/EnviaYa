@@ -3,7 +3,6 @@ package com.example.enviaya;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -60,10 +59,12 @@ public class MainActivity extends AppCompatActivity {
                         if (firebaseUser != null) {
                             // Verificar si el correo está verificado
                             if (firebaseUser.isEmailVerified()) {
-                                // Cargar los datos del usuario
+                                // Cargar los datos del usuario si el correo está verificado
                                 loadUserData(firebaseUser.getUid(), email);
                             } else {
+                                // Si el correo no está verificado, mostrar un mensaje y cerrar sesión
                                 Toast.makeText(this, "Debes verificar tu correo electrónico.", Toast.LENGTH_SHORT).show();
+                                mAuth.signOut();  // Cerrar sesión si el correo no está verificado
                             }
                         }
                     } else {
@@ -90,7 +91,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
 
     private void navigateToHome(Usuario usuario, String email) {
         Intent intent;

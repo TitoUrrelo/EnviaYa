@@ -8,6 +8,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -40,6 +41,8 @@ public class TomarFotoActivity extends AppCompatActivity {
     private Button btnGuardarReporte;
     private Uri photoUri;
 
+    private EditText etDescripcionProblema;
+
     private String idPaquete;
     private String idConductor;  // Variable para el ID del conductor
     private StorageReference storageRef;
@@ -57,6 +60,9 @@ public class TomarFotoActivity extends AppCompatActivity {
         rbDevuelto = findViewById(R.id.rbDevuelto);
         ivFoto = findViewById(R.id.ivFoto);
         btnGuardarReporte = findViewById(R.id.btnGuardarReporte);
+
+        // Inicializar el campo de texto
+        etDescripcionProblema = findViewById(R.id.etDescripcionProblema);
 
         // Configurar referencias de Firebase
         idPaquete = getIntent().getStringExtra("idPaquete");
@@ -80,11 +86,11 @@ public class TomarFotoActivity extends AppCompatActivity {
         // Configurar RadioGroup para manejar estados
         rgEstado.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == R.id.rbEntregado) {
-                // Abrir galería para seleccionar foto
+                etDescripcionProblema.setVisibility(View.GONE); // Ocultar el campo de texto
                 Intent galleryIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
                 startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE);
             } else if (checkedId == R.id.rbDevuelto) {
-                // Ocultar la imagen si se selecciona "Devuelto"
+                etDescripcionProblema.setVisibility(View.VISIBLE); // Mostrar el campo de texto
                 ivFoto.setImageURI(null);
                 ivFoto.setVisibility(View.GONE);
                 photoUri = null;
@@ -95,9 +101,13 @@ public class TomarFotoActivity extends AppCompatActivity {
         btnGuardarReporte.setOnClickListener(v -> {
             String estado = rbEntregado.isChecked() ? "Entregado" : "Devuelto";
 
-            // Validar selección de foto si es "Entregado"
             if (estado.equals("Entregado") && photoUri == null) {
                 Toast.makeText(this, "Selecciona una foto para el estado 'Entregado'", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (estado.equals("Devuelto") && etDescripcionProblema.getText().toString().trim().isEmpty()) {
+                Toast.makeText(this, "Ingresa una razón para la devolución", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -118,27 +128,58 @@ public class TomarFotoActivity extends AppCompatActivity {
         // Crear el objeto Reporte
         Reporte reporte = new Reporte(
                 idReporte,
-                idConductor,  // Asignar el ID del conductor
+                idConductor,
                 idPaquete,
                 estado,
                 horaActual,
                 fechaActual
         );
 
-        // Guardar el reporte directamente bajo "Reportes"
         reportesRef.child(idReporte).setValue(reporte);
 
-        // Actualizar estado del paquete
-        DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
-        paquetesRef.child(idPaquete).child("estado").setValue(estado);
-
-        // Subir foto si es "Entregado"
-        if (estado.equals("Entregado")) {
+        if (estado.equals("Devuelto")) {
+            guardarProblema();
+        } else if (estado.equals("Entregado")) {
             subirFoto(photoUri, idReporte);
         } else {
             Toast.makeText(this, "Reporte guardado correctamente", Toast.LENGTH_SHORT).show();
-            finish(); // Cierra esta actividad y regresa a la anterior
+            finish();
         }
+    }
+
+    private void guardarProblema() {
+        String idProblema = reportesRef.push().getKey(); // Puedes usar otra referencia si necesitas separar los problemas
+        String descripcion = etDescripcionProblema.getText().toString().trim();
+
+        // Crear el objeto Problema
+        Problema problema = new Problema(
+                idProblema,
+                idConductor,
+                idPaquete,
+                descripcion,
+                new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Calendar.getInstance().getTime()),
+                new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Calendar.getInstance().getTime())
+        );
+
+        DatabaseReference problemasRef = FirebaseDatabase.getInstance().getReference("Problemas");
+
+        // Guardar el problema en Firebase
+        problemasRef.child(idProblema).setValue(problema).addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                // Actualizar el estado del paquete a "Devuelto"
+                DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
+                paquetesRef.child(idPaquete).child("estado").setValue("Devuelto").addOnCompleteListener(updateTask -> {
+                    if (updateTask.isSuccessful()) {
+                        Toast.makeText(this, "Problema y estado del paquete actualizados correctamente", Toast.LENGTH_SHORT).show();
+                        finish();
+                    } else {
+                        Toast.makeText(this, "Error al actualizar el estado del paquete", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } else {
+                Toast.makeText(this, "Error al guardar el problema", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     // Subir foto a Firebase Storage
