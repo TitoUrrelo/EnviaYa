@@ -1,7 +1,10 @@
 package com.example.enviaya;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -34,7 +37,6 @@ public class ConductorActivity extends AppCompatActivity {
     private String conductorEmail;
     private String conductorId;
 
-    private Button btnAceptarPaquetes;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,10 +73,6 @@ public class ConductorActivity extends AppCompatActivity {
         listaPaquetes = new ArrayList<>();
         asignacionPaqueteAdapter = new AsignacionPaqueteAdapter(this, listaPaquetes);
         asignacionPaqueteRecyclerView.setAdapter(asignacionPaqueteAdapter);
-
-        // Referencia al botón
-        btnAceptarPaquetes = findViewById(R.id.btnAceptarPaquetes);
-        btnAceptarPaquetes.setOnClickListener(v -> aceptarPaquetes());
     }
 
     private void cargarPaquetesAsignados() {
@@ -107,43 +105,121 @@ public class ConductorActivity extends AppCompatActivity {
     }
 
     private void mostrarDialogoAceptacion(String idAsignacion, AsignacionPaquetes asignacion) {
-        new AlertDialog.Builder(this)
-                .setTitle("Aceptar Asignación")
-                .setMessage("¿Aceptas esta lista de paquetes para entregar?")
-                .setPositiveButton("Aceptar", (dialog, which) -> {
-                    // Actualiza el estado de aceptación en Firebase
-                    conductoresRef.child(conductorId).child("paquetesAsignados")
-                            .child(idAsignacion).child("aceptado").setValue(true)
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    Toast.makeText(ConductorActivity.this, "Asignación aceptada", Toast.LENGTH_SHORT).show();
-                                    cargarDetallesPaquetes(asignacion.getIdPaquete());
-                                } else {
-                                    Toast.makeText(ConductorActivity.this, "Error al aceptar la asignación", Toast.LENGTH_SHORT).show();
-                                }
-                            });
-                })
-                .setNegativeButton("Rechazar", (dialog, which) -> {
-                    // Elimina la asignación de paquetes y actualiza el estado a "pendiente"
-                    eliminarAsignacionYActualizarEstado(idAsignacion, asignacion);
-                })
-                .setCancelable(false)
-                .show();
+        StringBuilder paqueteDetalles = new StringBuilder();
+        int numPaquetes = asignacion.getIdPaquete().size();
+        final int[] paquetesProcesados = {0};
+
+        for (String paqueteId : asignacion.getIdPaquete()) {
+            paquetesRef.child(paqueteId).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    Paquete paquete = dataSnapshot.getValue(Paquete.class);
+                    if (paquete != null) {
+                        paqueteDetalles.append("Paquete: ").append(paquete.getIdPaquete())
+                                .append("\nDirección: ").append(paquete.getDireccionEntrega())
+                                .append("\nPeso: ").append(paquete.getPeso()).append(" kg\n\n");
+                    }
+
+                    paquetesProcesados[0]++;
+                    if (paquetesProcesados[0] == numPaquetes) {
+                        TextView detallesTextView = new TextView(ConductorActivity.this);
+                        detallesTextView.setText(paqueteDetalles.toString());
+                        detallesTextView.setPadding(16, 16, 16, 16);
+
+                        ScrollView scrollView = new ScrollView(ConductorActivity.this);
+                        scrollView.addView(detallesTextView);
+
+                        new AlertDialog.Builder(ConductorActivity.this)
+                                .setTitle("Aceptar Asignación")
+                                .setMessage("¿Aceptas esta lista de paquetes para entregar?\n\n" +
+                                        "Número de paquetes: " + numPaquetes + "\n\n")
+                                .setView(scrollView)
+                                .setPositiveButton("Aceptar", (dialog, which) -> {
+                                    // Actualizar los estados de todos los paquetes
+                                    for (String paqueteId : asignacion.getIdPaquete()) {
+                                        paquetesRef.child(paqueteId).addListenerForSingleValueEvent(new ValueEventListener() {
+                                            @Override
+                                            public void onDataChange(DataSnapshot dataSnapshot) {
+                                                Paquete paquete = dataSnapshot.getValue(Paquete.class);
+                                                if (paquete != null) {
+                                                    paquete.setEstado("en tránsito");
+                                                    paquetesRef.child(paquete.getIdPaquete()).setValue(paquete)
+                                                            .addOnCompleteListener(task -> {
+                                                                if (task.isSuccessful()) {
+                                                                    generarReporteTransito(paquete);
+                                                                    Toast.makeText(ConductorActivity.this,
+                                                                            "Estado de paquete actualizado a 'en tránsito'",
+                                                                            Toast.LENGTH_SHORT).show();
+                                                                } else {
+                                                                    Toast.makeText(ConductorActivity.this,
+                                                                            "Error al actualizar el estado del paquete",
+                                                                            Toast.LENGTH_SHORT).show();
+                                                                }
+                                                            });
+                                                }
+                                            }
+
+                                            @Override
+                                            public void onCancelled(DatabaseError databaseError) {
+                                                Toast.makeText(ConductorActivity.this,
+                                                        "Error al cargar detalles del paquete",
+                                                        Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
+                                    }
+
+                                    // Actualizar el estado de aceptación en Firebase
+                                    conductoresRef.child(conductorId).child("paquetesAsignados")
+                                            .child(idAsignacion).child("aceptado").setValue(true)
+                                            .addOnCompleteListener(task -> {
+                                                if (task.isSuccessful()) {
+                                                    Toast.makeText(ConductorActivity.this,
+                                                            "Asignación aceptada",
+                                                            Toast.LENGTH_SHORT).show();
+
+                                                    // Actualizar la lista de paquetes después de aceptar la asignación
+                                                    cargarPaquetesAsignados();  // Recargar la lista
+                                                } else {
+                                                    Toast.makeText(ConductorActivity.this,
+                                                            "Error al actualizar la asignación",
+                                                            Toast.LENGTH_SHORT).show();
+                                                }
+                                            });
+                                })
+                                .setNegativeButton("Rechazar", (dialog, which) -> {
+                                    eliminarAsignacionYActualizarEstado(idAsignacion, asignacion);
+                                })
+                                .setCancelable(false)
+                                .show();
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Toast.makeText(ConductorActivity.this,
+                            "Error al cargar los detalles del paquete",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     private void cargarDetallesPaquetes(List<String> idsPaquetes) {
-        paquetesRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        paquetesRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 listaPaquetes.clear();
                 for (String paqueteId : idsPaquetes) {
                     DataSnapshot paqueteSnapshot = dataSnapshot.child(paqueteId);
                     Paquete paquete = paqueteSnapshot.getValue(Paquete.class);
-                    if (paquete != null) {
+                    if (paquete != null && "en tránsito".equals(paquete.getEstado())) {
                         listaPaquetes.add(paquete);
                     }
                 }
                 asignacionPaqueteAdapter.notifyDataSetChanged();
+
+                // Verificar si no hay paquetes y mostrar el botón de confirmación
+                verificarPaquetesDisponibles();
             }
 
             @Override
@@ -153,22 +229,51 @@ public class ConductorActivity extends AppCompatActivity {
         });
     }
 
+    private void verificarPaquetesDisponibles() {
+        Button btnConfirmarEntregas = findViewById(R.id.btnConfirmarEntregas); // Asegúrate de tener este botón en el layout
+        if (listaPaquetes.isEmpty()) {
+            btnConfirmarEntregas.setVisibility(View.VISIBLE);
+            btnConfirmarEntregas.setOnClickListener(v -> confirmarEntregasTerminadas());
+        } else {
+            btnConfirmarEntregas.setVisibility(View.GONE);
+        }
+    }
+    private void confirmarEntregasTerminadas() {
+        // Cambiar disponibilidad del conductor
+        conductoresRef.child(conductorId).child("disponibilidad").setValue(true)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Toast.makeText(ConductorActivity.this, "Disponibilidad actualizada", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(ConductorActivity.this, "Error al actualizar disponibilidad", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+        // Eliminar paquetes asignados
+        conductoresRef.child(conductorId).child("paquetesAsignados").removeValue()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Toast.makeText(ConductorActivity.this, "Paquetes asignados eliminados", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(ConductorActivity.this, "Error al eliminar paquetes asignados", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
     private void aceptarPaquetes() {
+
+        int totalPaquetes = listaPaquetes.size();
+        final int[] paquetesProcesados = {0};
+
         for (Paquete paquete : listaPaquetes) {
-            // Cambiar el estado de todos los paquetes a "en tránsito"
             paquete.setEstado("en tránsito");
 
-            // Actualizar el estado en Firebase
             paquetesRef.child(paquete.getIdPaquete()).setValue(paquete)
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
-                            // Si la actualización fue exitosa, actualizamos la lista local
                             listaPaquetes.get(listaPaquetes.indexOf(paquete)).setEstado("en tránsito");
                             asignacionPaqueteAdapter.notifyItemChanged(listaPaquetes.indexOf(paquete));
-
-                            // Crear el reporte para este paquete
                             generarReporteTransito(paquete);
-
                             Toast.makeText(ConductorActivity.this, "Estado actualizado a 'en tránsito' y reporte generado", Toast.LENGTH_SHORT).show();
                         } else {
                             Toast.makeText(ConductorActivity.this, "Error al actualizar el estado", Toast.LENGTH_SHORT).show();

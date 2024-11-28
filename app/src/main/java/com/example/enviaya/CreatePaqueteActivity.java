@@ -95,7 +95,7 @@ public class CreatePaqueteActivity extends AppCompatActivity {
     private void generarReporte(String paqueteId, String estado) {
         String idReporte = reportesRef.push().getKey();
 
-        String fecha = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String fecha = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
         String hora = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
 
         Reporte reporte = new Reporte(idReporte, "", paqueteId, estado, hora, fecha);

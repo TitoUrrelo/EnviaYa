@@ -28,6 +28,7 @@ public class AdminActivity extends AppCompatActivity {
     private List<Paquete> paquetesSeleccionados;
     private Button asignarPaqueteButton;
     private Button btnCreatePaquete;
+    private Button btnVerReportes;
     private Spinner conductorSpinner;
 
     private DatabaseReference paquetesRef;
@@ -44,6 +45,12 @@ public class AdminActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
+
+        btnVerReportes = findViewById(R.id.btnVerReportes);
+        btnVerReportes.setOnClickListener(v -> {
+            Intent intent = new Intent(AdminActivity.this, ReportesActivity.class);
+            startActivity(intent);
+        });
 
 
         adminEmail = getIntent().getStringExtra("email");
