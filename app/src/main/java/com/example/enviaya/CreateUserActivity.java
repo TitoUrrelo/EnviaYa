@@ -28,7 +28,6 @@ public class CreateUserActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_create_user);
 
-        // Inicializar vistas
         adminForm = findViewById(R.id.adminForm);
         conductorForm = findViewById(R.id.conductorForm);
         btnAdmin = findViewById(R.id.btnAdmin);
@@ -36,15 +35,12 @@ public class CreateUserActivity extends AppCompatActivity {
         crearAdminButton = findViewById(R.id.crearAdminButton);
         crearConductorButton = findViewById(R.id.crearConductorButton);
 
-        // Inicializar Firebase
         mAuth = FirebaseAuth.getInstance();
         usersRef = FirebaseDatabase.getInstance().getReference("Usuarios");
 
-        // Configurar botones para alternar entre formularios
         btnAdmin.setOnClickListener(v -> mostrarFormularioAdmin());
         btnConductor.setOnClickListener(v -> mostrarFormularioConductor());
 
-        // Configurar los botones para crear usuarios
         crearAdminButton.setOnClickListener(v -> crearAdmin());
         crearConductorButton.setOnClickListener(v -> crearConductor());
     }
@@ -70,21 +66,16 @@ public class CreateUserActivity extends AppCompatActivity {
             return;
         }
 
-        // Crear usuario en Firebase Authentication sin contraseña (se enviará un correo de verificación)
-        mAuth.createUserWithEmailAndPassword(correo, "temporaryPassword") // Contraseña temporal
+        mAuth.createUserWithEmailAndPassword(correo, "=,Z]=opQ(5c7kY0<Oz2<") // temporal
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
 
                         FirebaseUser user = mAuth.getCurrentUser();
                         if (user != null) {
-                            // Enviar correo de verificación
                             user.sendEmailVerification()
                                     .addOnCompleteListener(verifyTask -> {
                                         if (verifyTask.isSuccessful()) {
-                                            // Usuario creado, correo de verificación enviado
                                             String userId = user.getUid();
-
-                                            // Crear el objeto de administrador (sin contraseña)
                                             Usuario admin = new Usuario(userId, nombre, correo, telefono, "admin");
 
                                             usersRef.child(userId).setValue(admin)
@@ -114,27 +105,21 @@ public class CreateUserActivity extends AppCompatActivity {
         String matricula = ((EditText) findViewById(R.id.matriculaEditText)).getText().toString().trim();
         String licencia = ((EditText) findViewById(R.id.licenciaEditText)).getText().toString().trim();
 
-        // Validación de campos
         if (nombre.isEmpty() || correo.isEmpty() || telefono.isEmpty() || matricula.isEmpty() || licencia.isEmpty()) {
             Toast.makeText(this, "Todos los campos son obligatorios", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Crear usuario en Firebase Authentication sin contraseña (se enviará un correo de verificación)
-        mAuth.createUserWithEmailAndPassword(correo, "temporaryPassword") // Contraseña temporal
+        mAuth.createUserWithEmailAndPassword(correo, "=,Z]=opQ(5c7kY0<Oz2<") // temporal
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
 
                         FirebaseUser user = mAuth.getCurrentUser();
                         if (user != null) {
-                            // Enviar correo de verificación
                             user.sendEmailVerification()
                                     .addOnCompleteListener(verifyTask -> {
                                         if (verifyTask.isSuccessful()) {
-                                            // Usuario creado, correo de verificación enviado
                                             String userId = user.getUid();
-
-                                            // Crear el objeto de conductor (sin contraseña)
                                             Usuario conductor = new Usuario(userId, nombre, correo, telefono, "conductor", matricula, licencia, true);
 
                                             usersRef.child(userId).setValue(conductor)
