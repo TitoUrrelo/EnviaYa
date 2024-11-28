@@ -25,7 +25,7 @@
 
     <!-- Botón para aceptar todos los paquetes y cambiarlos a 'en tránsito' -->
     <Button
-        android:id="@+id/btnAceptarPaquetes"
+        android:id="@+id/btnConfirmarEntregas"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:text="Aceptar Todos los Paquetes"
