@@ -63,7 +63,7 @@ public class PaqueteAdapter extends RecyclerView.Adapter<PaqueteAdapter.PaqueteV
 
         void bind(Paquete paquete) {
             idPaqueteTextView.setText(paquete.getIdPaquete());
-            estadoTextView.setText(paquete.getEstado());
+            estadoTextView.setText(paquete.getPrioridad());
 
             selectCheckBox.setOnCheckedChangeListener(null);
             selectCheckBox.setChecked(paquetesSeleccionados.contains(paquete));

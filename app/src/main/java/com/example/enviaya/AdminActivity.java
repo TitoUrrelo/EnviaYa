@@ -3,6 +3,8 @@ package com.example.enviaya;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
@@ -31,6 +33,9 @@ public class AdminActivity extends AppCompatActivity {
     private Button btnVerReportes;
     private Spinner conductorSpinner;
 
+    private Spinner spinnerEstadoPaquetes; // Spinner para filtrar estados
+    private String estadoSeleccionado = "registrado"; // Estado inicial predeterminado
+
     private DatabaseReference paquetesRef;
     private DatabaseReference conductoresRef;
     private DatabaseReference reportesRef;
@@ -45,6 +50,30 @@ public class AdminActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
+
+        // Inicializar el Spinner de estados
+        spinnerEstadoPaquetes = findViewById(R.id.spinnerEstadoPaquetes);
+
+        // Configurar adaptador para el Spinner
+        ArrayAdapter<String> estadoAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item,
+                new String[]{"registrado", "pendiente", "Devuelto"});
+        estadoAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerEstadoPaquetes.setAdapter(estadoAdapter);
+
+        // Manejar cambios en la selección del Spinner
+        spinnerEstadoPaquetes.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                estadoSeleccionado = parent.getItemAtPosition(position).toString();
+                cargarPaquetes(); // Recargar paquetes según el nuevo filtro
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // No hacer nada
+            }
+        });
 
         btnVerReportes = findViewById(R.id.btnVerReportes);
         btnVerReportes.setOnClickListener(v -> {
@@ -110,7 +139,8 @@ public class AdminActivity extends AppCompatActivity {
     }
 
     private void cargarPaquetes() {
-        paquetesRef.orderByChild("estado").equalTo("registrado").addValueEventListener(new ValueEventListener() {
+        // Filtrar paquetes según el estado seleccionado
+        paquetesRef.orderByChild("estado").equalTo(estadoSeleccionado).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 paqueteList.clear();
@@ -277,6 +307,20 @@ public class AdminActivity extends AppCompatActivity {
     // Interfaz para callback
     public interface AdminEmailCallback {
         void onCallback(String idAdministrador);
+    }
+
+    public void ir(View view) {
+        if (esAdministrador()) {
+            Intent intent = new Intent(this, CreateUserActivity.class);
+            startActivity(intent);
+        }
+    }
+
+    private boolean esAdministrador() {
+        if (adminEmail != null && adminId != null) {
+            return true;
+        }
+        return false;
     }
 }
 

@@ -17,11 +17,15 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
 
 public class TomarFotoActivity extends AppCompatActivity {
 
@@ -37,8 +41,9 @@ public class TomarFotoActivity extends AppCompatActivity {
     private Uri photoUri;
 
     private String idPaquete;
+    private String idConductor;  // Variable para el ID del conductor
     private StorageReference storageRef;
-    private DatabaseReference paquetesRef;
+    private DatabaseReference reportesRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,15 +60,20 @@ public class TomarFotoActivity extends AppCompatActivity {
 
         // Configurar referencias de Firebase
         idPaquete = getIntent().getStringExtra("idPaquete");
+        idConductor = FirebaseAuth.getInstance().getCurrentUser().getUid(); // Obtener el ID del conductor autenticado
         storageRef = FirebaseStorage.getInstance().getReference("paquetesFotos");
-        paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
+        reportesRef = FirebaseDatabase.getInstance().getReference("Reportes"); // Cambiar la referencia para guardar en Reportes
 
         // Obtener datos del paquete y mostrar en el TextView
+        DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
         paquetesRef.child(idPaquete).get().addOnSuccessListener(snapshot -> {
             if (snapshot.exists()) {
                 String direccion = snapshot.child("direccionEntrega").getValue(String.class);
                 String estado = snapshot.child("estado").getValue(String.class);
-                tvPaqueteInfo.setText("ID: " + idPaquete + "\nDirección: " + direccion + "\nEstado: " + estado);
+                double peso = snapshot.child("peso").getValue(Double.class);  // Obtener el valor del peso como double
+
+                // Mostrar la información del paquete, incluyendo el peso
+                tvPaqueteInfo.setText("ID: " + idPaquete + "\nDirección: " + direccion + "\nEstado: " + estado + "\nPeso: " + peso + " kg");
             }
         });
 
@@ -97,19 +107,30 @@ public class TomarFotoActivity extends AppCompatActivity {
 
     // Método para guardar el reporte en Firebase
     private void guardarReporte(String estado) {
-        String idReporte = paquetesRef.push().getKey();
+        String idReporte = reportesRef.push().getKey();
+
+        // Obtener la fecha y hora actuales
+        SimpleDateFormat sdfDate = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+        SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        String fechaActual = sdfDate.format(Calendar.getInstance().getTime());
+        String horaActual = sdfTime.format(Calendar.getInstance().getTime());
+
+        // Crear el objeto Reporte
         Reporte reporte = new Reporte(
                 idReporte,
-                "ID_CONDUCTOR", // Obtener dinámicamente el ID del conductor
+                idConductor,  // Asignar el ID del conductor
                 idPaquete,
                 estado,
-                "10:00 AM", // Reemplazar con la hora actual
-                "2024-11-27" // Reemplazar con la fecha actual
+                horaActual,
+                fechaActual
         );
 
-        // Actualizar estado del paquete y guardar reporte
+        // Guardar el reporte directamente bajo "Reportes"
+        reportesRef.child(idReporte).setValue(reporte);
+
+        // Actualizar estado del paquete
+        DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
         paquetesRef.child(idPaquete).child("estado").setValue(estado);
-        paquetesRef.child("Reportes").child(idReporte).setValue(reporte);
 
         // Subir foto si es "Entregado"
         if (estado.equals("Entregado")) {
@@ -125,7 +146,7 @@ public class TomarFotoActivity extends AppCompatActivity {
         StorageReference fotoRef = storageRef.child("reportes/" + idReporte + ".jpg");
         fotoRef.putFile(uri)
                 .addOnSuccessListener(taskSnapshot -> fotoRef.getDownloadUrl().addOnSuccessListener(url -> {
-                    paquetesRef.child("Reportes").child(idReporte).child("fotoUrl").setValue(url.toString());
+                    reportesRef.child(idReporte).child("fotoUrl").setValue(url.toString());
                     Toast.makeText(this, "Reporte guardado correctamente", Toast.LENGTH_SHORT).show();
                     finish(); // Cierra esta actividad después de subir la foto
                 }))

@@ -112,11 +112,6 @@ public class MainActivity extends AppCompatActivity {
         finish(); // Cierra la actividad de login
     }
 
-    public void ir(View view) {
-        Intent intent = new Intent(this, CreateUserActivity.class);
-        startActivity(intent);
-    }
-
     public void cambiarContra(View view) {
         Intent intent = new Intent(this, cambiarContra.class);
         startActivity(intent);

@@ -3,22 +3,41 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#F5F5F5"> <!-- Fondo suave para todo el layout -->
+
+    <!-- Título para la sección de información de paquete -->
+    <TextView
+        android:id="@+id/tvTituloPaquete"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:paddingBottom="8dp"
+        android:text="Información de Paquete"
+        android:textAlignment="center"
+        android:textColor="#00796B"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
     <!-- Información del paquete -->
     <TextView
         android:id="@+id/tvPaqueteInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Información del paquete"
+        android:paddingBottom="8dp"
+        android:text="Detalles del paquete"
+        android:textAlignment="center"
+        android:textColor="#333333"
         android:textSize="18sp"
-        android:paddingBottom="8dp" />
+        android:textStyle="bold" />
 
     <!-- Estado del paquete -->
     <RadioGroup
         android:id="@+id/rgEstado"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:background="?android:attr/selectableItemBackground"
         android:orientation="horizontal"
         android:paddingTop="8dp">
 
@@ -26,13 +45,15 @@
             android:id="@+id/rbEntregado"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Entregado" />
+            android:text="Entregado"
+            android:textColor="#00796B" />
 
         <RadioButton
             android:id="@+id/rbDevuelto"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Devuelto" />
+            android:text="Devuelto"
+            android:textColor="#D32F2F" />
     </RadioGroup>
 
     <!-- Imagen de la galería -->
@@ -42,7 +63,9 @@
         android:layout_height="200dp"
         android:scaleType="centerCrop"
         android:visibility="gone"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Imagen del paquete" />
 
     <!-- Botones -->
     <Button
@@ -50,6 +73,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Guardar Reporte"
-        android:layout_marginTop="16dp" />
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#00796B"
+        android:layout_marginTop="16dp"
+        android:padding="12dp" />
 
 </LinearLayout>

@@ -283,7 +283,14 @@ public class ConductorActivity extends AppCompatActivity {
     }
 
     private void eliminarAsignacionYActualizarEstado(String idAsignacion, AsignacionPaquetes asignacion) {
-        // Eliminar la asignación del conductor
+        conductoresRef.child(conductorId).child("disponibilidad").setValue(true)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Toast.makeText(ConductorActivity.this, "Disponibilidad actualizada a 'true'", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(ConductorActivity.this, "Error al actualizar la disponibilidad", Toast.LENGTH_SHORT).show();
+                    }
+                });
         conductoresRef.child(conductorId).child("paquetesAsignados").child(idAsignacion).removeValue()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {

@@ -1,115 +1,140 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="16dp"
     tools:context=".AdminActivity"
-    android:padding="16dp">
-
-    <!-- Título o texto superior para identificar la actividad -->
-
-    <!-- RecyclerView para mostrar los paquetes pendientes -->
+    android:background="#F3F4F6">
 
     <TextView
-        android:id="@+id/textView2"
+        android:id="@+id/tvTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:paddingStart="16dp"
-        android:paddingTop="24dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="16dp"
-        android:text="Admin - Asignar Paquetes"
+        android:text="Asignar Paquetes"
         android:textSize="20sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/paqueteRecyclerView2"
+        android:textColor="#1E3A8A"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.495"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tvFilterPackages"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Filtrar paquetes por:"
+        android:textSize="14sp"
+        android:textColor="#1E3A8A"
+        android:layout_marginBottom="4dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle" />
+
+    <Spinner
+        android:id="@+id/spinnerEstadoPaquetes"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvFilterPackages"
+        android:backgroundTint="#3B82F6" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/paqueteRecyclerView"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
-        app:layout_constraintBottom_toTopOf="@+id/conductorSpinner"
+        app:layout_constraintBottom_toTopOf="@id/tvSelectDriver"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView2" />
+        app:layout_constraintTop_toBottomOf="@id/spinnerEstadoPaquetes" />
 
-    <!-- Spinner para seleccionar el conductor -->
+    <TextView
+        android:id="@+id/tvSelectDriver"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Elegir conductor:"
+        android:textSize="14sp"
+        android:textColor="#1E3A8A"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="4dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/paqueteRecyclerView" />
+
     <Spinner
         android:id="@+id/conductorSpinner"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
         android:minHeight="48dp"
-        android:padding="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/paqueteRecyclerView" />
+        app:layout_constraintTop_toBottomOf="@id/tvSelectDriver"
+        android:backgroundTint="#3B82F6" />
 
-    <!-- Botón para asignar el paquete al conductor -->
     <Button
         android:id="@+id/asignarPaqueteButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Asignar Paquete"
-        app:layout_constraintBottom_toTopOf="@+id/btnAddPackage"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/conductorSpinner"
+        android:textColor="@android:color/white"
+        android:backgroundTint="#1E3A8A"
         android:layout_marginTop="16dp"
         android:padding="12dp"
-        android:textSize="16sp"/>
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/conductorSpinner" />
 
-    <!-- Botón para agregar un nuevo paquete -->
     <Button
         android:id="@+id/btnAddPackage"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Agregar Paquete"
-        app:layout_constraintBottom_toTopOf="@+id/btnRegisterUser"
+        android:textColor="@android:color/white"
+        android:backgroundTint="#1E3A8A"
+        android:layout_marginTop="16dp"
+        android:padding="12dp"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toTopOf="@id/btnRegisterUser"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/asignarPaqueteButton"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="32dp"
-        android:padding="12dp"
-        android:textSize="16sp"/>
+        app:layout_constraintTop_toBottomOf="@id/asignarPaqueteButton" />
 
-    <!-- Botón para registrar un nuevo usuario -->
-
-    <!-- Botón para ver los reportes -->
     <Button
         android:id="@+id/btnRegisterUser"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:text="Registrar Usuario"
+        android:textColor="@android:color/white"
+        android:backgroundTint="#1E3A8A"
         android:layout_marginTop="16dp"
         android:padding="12dp"
-        android:text="Registrar Usuario"
         android:textSize="16sp"
-        app:layout_constraintBottom_toTopOf="@+id/btnVerReportes"
+        app:layout_constraintBottom_toTopOf="@id/btnVerReportes"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnAddPackage" />
+        app:layout_constraintTop_toBottomOf="@id/btnAddPackage" />
 
     <Button
         android:id="@+id/btnVerReportes"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Ver Reportes"
+        android:textColor="@android:color/white"
+        android:backgroundTint="#1E3A8A"
+        android:layout_marginTop="16dp"
+        android:padding="12dp"
+        android:textSize="16sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnRegisterUser"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="32dp"
-        android:padding="12dp"
-        android:textSize="16sp"/>
+        app:layout_constraintTop_toBottomOf="@id/btnRegisterUser" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

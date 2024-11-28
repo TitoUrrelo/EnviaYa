@@ -4,113 +4,108 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#F3F4F6">
 
     <!-- Dirección -->
-
-    <!-- Prioridad -->
-
     <TextView
         android:id="@+id/tituloDireccionTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="70dp"
         android:text="Dirección de Entrega:"
-        android:textSize="16sp"
-        app:layout_constraintBottom_toTopOf="@id/direccionEditText"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.116"
+        android:textSize="18sp"
+        android:textColor="#1E3A8A"
+        android:textStyle="bold"
+        android:layout_marginTop="20dp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_chainStyle="spread" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <EditText
         android:id="@+id/direccionEditText"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="36dp"
-        android:layout_marginBottom="26dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
         android:hint="Ejemplo: Calle 123, Ciudad"
         android:minHeight="48dp"
-        app:layout_constraintBottom_toTopOf="@+id/tituloPrioridadTextView"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tituloDireccionTextView" />
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintTop_toBottomOf="@id/tituloDireccionTextView" />
 
+    <!-- Prioridad -->
     <TextView
         android:id="@+id/tituloPrioridadTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="56dp"
         android:text="Prioridad:"
-        android:textSize="16sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.085"
+        android:textSize="18sp"
+        android:textColor="#1E3A8A"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/direccionEditText" />
 
     <RadioGroup
         android:id="@+id/prioridadRadioGroup"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="60dp"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal"
-        app:layout_constraintBottom_toTopOf="@+id/pesoEditText"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tituloPrioridadTextView">
 
         <RadioButton
             android:id="@+id/prioridadAltaRadioButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Alta" />
+            android:text="Alta"/>
 
         <RadioButton
             android:id="@+id/prioridadBajaRadioButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Baja" />
+            android:text="Baja"/>
     </RadioGroup>
-
-    <!-- Peso -->
-
-    <!-- Botón Guardar -->
 
     <TextView
         android:id="@+id/tituloPesoTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="Peso: "
-        android:textSize="16sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.078"
+        android:text="Peso:"
+        android:textSize="18sp"
+        android:textColor="#1E3A8A"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/prioridadRadioGroup" />
 
     <EditText
         android:id="@+id/pesoEditText"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="12dp"
         android:hint="Ejemplo: 5.0 (en kg)"
         android:minHeight="48dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tituloPesoTextView" />
 
+    <!-- Botón Guardar -->
     <Button
         android:id="@+id/guardarPaqueteButton"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="56dp"
         android:text="Guardar Paquete"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.484"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#1E3A8A"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="32dp"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/pesoEditText" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
