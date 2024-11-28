@@ -67,6 +67,16 @@
         android:layout_marginBottom="16dp"
         android:contentDescription="Imagen del paquete" />
 
+    <EditText
+        android:id="@+id/etDescripcionProblema"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Razón de devolución"
+        android:visibility="gone"
+        android:inputType="textMultiLine"
+        android:layout_marginTop="8dp"
+        android:minHeight="100dp" />
+
     <!-- Botones -->
     <Button
         android:id="@+id/btnGuardarReporte"

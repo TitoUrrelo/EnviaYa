@@ -55,12 +55,10 @@ public class CreatePaqueteActivity extends AppCompatActivity {
     private void guardarPaquete() {
         String direccion = direccionEditText.getText().toString().trim();
         String pesoStr = pesoEditText.getText().toString().trim();
-
         if (TextUtils.isEmpty(direccion) || TextUtils.isEmpty(pesoStr)) {
             Toast.makeText(this, "Todos los campos son obligatorios", Toast.LENGTH_SHORT).show();
             return;
         }
-
         double peso;
         try {
             peso = Double.parseDouble(pesoStr);
@@ -68,7 +66,6 @@ public class CreatePaqueteActivity extends AppCompatActivity {
             Toast.makeText(this, "El peso debe ser un número válido", Toast.LENGTH_SHORT).show();
             return;
         }
-
         String prioridad;
         int selectedPriorityId = prioridadRadioGroup.getCheckedRadioButtonId();
         if (selectedPriorityId == R.id.prioridadAltaRadioButton) {
@@ -79,18 +76,15 @@ public class CreatePaqueteActivity extends AppCompatActivity {
             Toast.makeText(this, "Por favor selecciona una prioridad", Toast.LENGTH_SHORT).show();
             return;
         }
-
         String estado = "registrado";
-
         String paqueteId = paquetesRef.push().getKey();
         String fotoUrl = "";
         Paquete paquete = new Paquete(paqueteId, estado, direccion, prioridad, peso, fotoUrl);
-
         paquetesRef.child(paqueteId).setValue(paquete)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         Toast.makeText(this, "Paquete guardado exitosamente", Toast.LENGTH_SHORT).show();
-                        generarReporte(paqueteId, estado); // Generar reporte después de guardar el paquete
+                        generarReporte(paqueteId, estado);
                         generarYGuardarImagen(paquete);
                         finish();
                     } else {
