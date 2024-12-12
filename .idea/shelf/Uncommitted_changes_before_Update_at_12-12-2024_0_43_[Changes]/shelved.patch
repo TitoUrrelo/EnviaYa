@@ -1,0 +1,756 @@
+Index: app/src/main/java/com/example/enviaya/TomarFotoActivity.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\nimport android.content.Intent;\r\nimport android.content.pm.PackageManager;\r\nimport android.net.Uri;\r\nimport android.os.Bundle;\r\nimport android.provider.MediaStore;\r\nimport android.util.Log;\r\nimport android.view.View;\r\nimport android.widget.Button;\r\nimport android.widget.EditText;\r\nimport android.widget.ImageView;\r\nimport android.widget.RadioButton;\r\nimport android.widget.RadioGroup;\r\nimport android.widget.TextView;\r\nimport android.widget.Toast;\r\nimport androidx.annotation.NonNull;\r\nimport androidx.appcompat.app.AppCompatActivity;\r\nimport androidx.core.app.ActivityCompat;\r\nimport androidx.core.content.ContextCompat;\r\nimport com.google.firebase.auth.FirebaseAuth;\r\nimport com.google.firebase.database.DatabaseReference;\r\nimport com.google.firebase.database.FirebaseDatabase;\r\nimport com.google.firebase.storage.FirebaseStorage;\r\nimport com.google.firebase.storage.StorageReference;\r\nimport java.io.IOException;\r\nimport java.text.SimpleDateFormat;\r\nimport java.util.Calendar;\r\nimport java.util.Locale;\r\n\r\npublic class TomarFotoActivity extends AppCompatActivity {\r\n\r\n    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;\r\n    private static final int GALLERY_REQUEST_CODE = 1;\r\n\r\n    private TextView tvPaqueteInfo;\r\n    private RadioGroup rgEstado;\r\n    private RadioButton rbEntregado;\r\n    private RadioButton rbDevuelto;\r\n    private ImageView ivFoto;\r\n    private Button btnGuardarReporte;\r\n    private Uri photoUri;\r\n\r\n    private EditText etDescripcionProblema;\r\n\r\n    private String idPaquete;\r\n    private String idConductor;  // Variable para el ID del conductor\r\n    private StorageReference storageRef;\r\n    private DatabaseReference reportesRef;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        setContentView(R.layout.activity_tomar_foto);\r\n\r\n        // Inicializar vistas\r\n        tvPaqueteInfo = findViewById(R.id.tvPaqueteInfo);\r\n        rgEstado = findViewById(R.id.rgEstado);\r\n        rbEntregado = findViewById(R.id.rbEntregado);\r\n        rbDevuelto = findViewById(R.id.rbDevuelto);\r\n        ivFoto = findViewById(R.id.ivFoto);\r\n        btnGuardarReporte = findViewById(R.id.btnGuardarReporte);\r\n\r\n        // Inicializar el campo de texto\r\n        etDescripcionProblema = findViewById(R.id.etDescripcionProblema);\r\n\r\n        // Configurar referencias de Firebase\r\n        idPaquete = getIntent().getStringExtra(\"idPaquete\");\r\n        idConductor = FirebaseAuth.getInstance().getCurrentUser().getUid(); // Obtener el ID del conductor autenticado\r\n        storageRef = FirebaseStorage.getInstance().getReference(\"paquetesFotos\");\r\n        reportesRef = FirebaseDatabase.getInstance().getReference(\"Reportes\"); // Cambiar la referencia para guardar en Reportes\r\n\r\n        // Obtener datos del paquete y mostrar en el TextView\r\n        DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference(\"Paquetes\");\r\n        paquetesRef.child(idPaquete).get().addOnSuccessListener(snapshot -> {\r\n            if (snapshot.exists()) {\r\n                String direccion = snapshot.child(\"direccionEntrega\").getValue(String.class);\r\n                String estado = snapshot.child(\"estado\").getValue(String.class);\r\n                double peso = snapshot.child(\"peso\").getValue(Double.class);  // Obtener el valor del peso como double\r\n\r\n                // Mostrar la información del paquete, incluyendo el peso\r\n                tvPaqueteInfo.setText(\"ID: \" + idPaquete + \"\\nDirección: \" + direccion + \"\\nEstado: \" + estado + \"\\nPeso: \" + peso + \" kg\");\r\n            }\r\n        });\r\n\r\n        // Configurar RadioGroup para manejar estados\r\n        rgEstado.setOnCheckedChangeListener((group, checkedId) -> {\r\n            if (checkedId == R.id.rbEntregado) {\r\n                etDescripcionProblema.setVisibility(View.GONE); // Ocultar el campo de texto\r\n                Intent galleryIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);\r\n                startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE);\r\n            } else if (checkedId == R.id.rbDevuelto) {\r\n                etDescripcionProblema.setVisibility(View.VISIBLE); // Mostrar el campo de texto\r\n                ivFoto.setImageURI(null);\r\n                ivFoto.setVisibility(View.GONE);\r\n                photoUri = null;\r\n            }\r\n        });\r\n\r\n        // Configurar botón para guardar reporte\r\n        btnGuardarReporte.setOnClickListener(v -> {\r\n            String estado = rbEntregado.isChecked() ? \"Entregado\" : \"Devuelto\";\r\n\r\n            if (estado.equals(\"Entregado\") && photoUri == null) {\r\n                Toast.makeText(this, \"Selecciona una foto para el estado 'Entregado'\", Toast.LENGTH_SHORT).show();\r\n                return;\r\n            }\r\n\r\n            if (estado.equals(\"Devuelto\") && etDescripcionProblema.getText().toString().trim().isEmpty()) {\r\n                Toast.makeText(this, \"Ingresa una razón para la devolución\", Toast.LENGTH_SHORT).show();\r\n                return;\r\n            }\r\n\r\n            guardarReporte(estado);\r\n        });\r\n    }\r\n\r\n    // Método para guardar el reporte en Firebase\r\n    private void guardarReporte(String estado) {\r\n        String idReporte = reportesRef.push().getKey();\r\n\r\n        // Obtener la fecha y hora actuales\r\n        SimpleDateFormat sdfDate = new SimpleDateFormat(\"dd/MM/yyyy\", Locale.getDefault());\r\n        SimpleDateFormat sdfTime = new SimpleDateFormat(\"HH:mm:ss\", Locale.getDefault());\r\n        String fechaActual = sdfDate.format(Calendar.getInstance().getTime());\r\n        String horaActual = sdfTime.format(Calendar.getInstance().getTime());\r\n\r\n        // Crear el objeto Reporte\r\n        Reporte reporte = new Reporte(\r\n                idReporte,\r\n                idConductor,\r\n                idPaquete,\r\n                estado,\r\n                horaActual,\r\n                fechaActual\r\n        );\r\n\r\n        reportesRef.child(idReporte).setValue(reporte);\r\n\r\n        if (estado.equals(\"Devuelto\")) {\r\n            guardarProblema();\r\n        } else if (estado.equals(\"Entregado\")) {\r\n            subirFoto(photoUri, idReporte);\r\n        } else {\r\n            Toast.makeText(this, \"Reporte guardado correctamente\", Toast.LENGTH_SHORT).show();\r\n            finish();\r\n        }\r\n    }\r\n\r\n    private void guardarProblema() {\r\n        String idProblema = reportesRef.push().getKey(); // Puedes usar otra referencia si necesitas separar los problemas\r\n        String descripcion = etDescripcionProblema.getText().toString().trim();\r\n\r\n        // Crear el objeto Problema\r\n        Problema problema = new Problema(\r\n                idProblema,\r\n                idConductor,\r\n                idPaquete,\r\n                descripcion,\r\n                new SimpleDateFormat(\"HH:mm:ss\", Locale.getDefault()).format(Calendar.getInstance().getTime()),\r\n                new SimpleDateFormat(\"dd/MM/yyyy\", Locale.getDefault()).format(Calendar.getInstance().getTime())\r\n        );\r\n\r\n        DatabaseReference problemasRef = FirebaseDatabase.getInstance().getReference(\"Problemas\");\r\n\r\n        // Guardar el problema en Firebase\r\n        problemasRef.child(idProblema).setValue(problema).addOnCompleteListener(task -> {\r\n            if (task.isSuccessful()) {\r\n                // Actualizar el estado del paquete a \"Devuelto\"\r\n                DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference(\"Paquetes\");\r\n                paquetesRef.child(idPaquete).child(\"estado\").setValue(\"Devuelto\").addOnCompleteListener(updateTask -> {\r\n                    if (updateTask.isSuccessful()) {\r\n                        Toast.makeText(this, \"Problema y estado del paquete actualizados correctamente\", Toast.LENGTH_SHORT).show();\r\n                        finish();\r\n                    } else {\r\n                        Toast.makeText(this, \"Error al actualizar el estado del paquete\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n            } else {\r\n                Toast.makeText(this, \"Error al guardar el problema\", Toast.LENGTH_SHORT).show();\r\n            }\r\n        });\r\n    }\r\n\r\n    // Subir foto a Firebase Storage\r\n    private void subirFoto(Uri uri, String idReporte) {\r\n        StorageReference fotoRef = storageRef.child(\"reportes/\" + idReporte + \".jpg\");\r\n        fotoRef.putFile(uri)\r\n                .addOnSuccessListener(taskSnapshot -> fotoRef.getDownloadUrl().addOnSuccessListener(url -> {\r\n                    reportesRef.child(idReporte).child(\"fotoUrl\").setValue(url.toString());\r\n                    Toast.makeText(this, \"Reporte guardado correctamente\", Toast.LENGTH_SHORT).show();\r\n                    finish(); // Cierra esta actividad después de subir la foto\r\n                }))\r\n                .addOnFailureListener(e -> Toast.makeText(this, \"Error al subir la foto\", Toast.LENGTH_SHORT).show());\r\n    }\r\n\r\n    @Override\r\n    protected void onActivityResult(int requestCode, int resultCode, Intent data) {\r\n        super.onActivityResult(requestCode, resultCode, data);\r\n        if (requestCode == GALLERY_REQUEST_CODE && resultCode == RESULT_OK && data != null) {\r\n            // Obtener la URI de la foto seleccionada\r\n            photoUri = data.getData();\r\n            ivFoto.setVisibility(View.VISIBLE);\r\n            ivFoto.setImageURI(photoUri);\r\n        }\r\n    }\r\n\r\n    @Override\r\n    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {\r\n        super.onRequestPermissionsResult(requestCode, permissions, grantResults);\r\n        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {\r\n            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {\r\n                Toast.makeText(this, \"Permiso concedido para usar la cámara\", Toast.LENGTH_SHORT).show();\r\n            } else {\r\n                Toast.makeText(this, \"Permiso denegado. No se puede usar la cámara\", Toast.LENGTH_SHORT).show();\r\n            }\r\n        }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/TomarFotoActivity.java b/app/src/main/java/com/example/enviaya/TomarFotoActivity.java
+--- a/app/src/main/java/com/example/enviaya/TomarFotoActivity.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/TomarFotoActivity.java	(date 1733974869792)
+@@ -44,7 +44,7 @@
+     private EditText etDescripcionProblema;
+ 
+     private String idPaquete;
+-    private String idConductor;  // Variable para el ID del conductor
++    private String idConductor;
+     private StorageReference storageRef;
+     private DatabaseReference reportesRef;
+ 
+@@ -53,7 +53,6 @@
+         super.onCreate(savedInstanceState);
+         setContentView(R.layout.activity_tomar_foto);
+ 
+-        // Inicializar vistas
+         tvPaqueteInfo = findViewById(R.id.tvPaqueteInfo);
+         rgEstado = findViewById(R.id.rgEstado);
+         rbEntregado = findViewById(R.id.rbEntregado);
+@@ -61,43 +60,36 @@
+         ivFoto = findViewById(R.id.ivFoto);
+         btnGuardarReporte = findViewById(R.id.btnGuardarReporte);
+ 
+-        // Inicializar el campo de texto
+         etDescripcionProblema = findViewById(R.id.etDescripcionProblema);
+ 
+-        // Configurar referencias de Firebase
+         idPaquete = getIntent().getStringExtra("idPaquete");
+-        idConductor = FirebaseAuth.getInstance().getCurrentUser().getUid(); // Obtener el ID del conductor autenticado
++        idConductor = FirebaseAuth.getInstance().getCurrentUser().getUid();
+         storageRef = FirebaseStorage.getInstance().getReference("paquetesFotos");
+-        reportesRef = FirebaseDatabase.getInstance().getReference("Reportes"); // Cambiar la referencia para guardar en Reportes
++        reportesRef = FirebaseDatabase.getInstance().getReference("Reportes");
+ 
+-        // Obtener datos del paquete y mostrar en el TextView
+         DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
+         paquetesRef.child(idPaquete).get().addOnSuccessListener(snapshot -> {
+             if (snapshot.exists()) {
+                 String direccion = snapshot.child("direccionEntrega").getValue(String.class);
+                 String estado = snapshot.child("estado").getValue(String.class);
+-                double peso = snapshot.child("peso").getValue(Double.class);  // Obtener el valor del peso como double
++                double peso = snapshot.child("peso").getValue(Double.class);
+ 
+-                // Mostrar la información del paquete, incluyendo el peso
+                 tvPaqueteInfo.setText("ID: " + idPaquete + "\nDirección: " + direccion + "\nEstado: " + estado + "\nPeso: " + peso + " kg");
+             }
+         });
+ 
+-        // Configurar RadioGroup para manejar estados
+         rgEstado.setOnCheckedChangeListener((group, checkedId) -> {
+             if (checkedId == R.id.rbEntregado) {
+-                etDescripcionProblema.setVisibility(View.GONE); // Ocultar el campo de texto
++                etDescripcionProblema.setVisibility(View.GONE);
+                 Intent galleryIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                 startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE);
+             } else if (checkedId == R.id.rbDevuelto) {
+-                etDescripcionProblema.setVisibility(View.VISIBLE); // Mostrar el campo de texto
++                etDescripcionProblema.setVisibility(View.VISIBLE);
+                 ivFoto.setImageURI(null);
+                 ivFoto.setVisibility(View.GONE);
+                 photoUri = null;
+             }
+         });
+-
+-        // Configurar botón para guardar reporte
+         btnGuardarReporte.setOnClickListener(v -> {
+             String estado = rbEntregado.isChecked() ? "Entregado" : "Devuelto";
+ 
+@@ -115,17 +107,12 @@
+         });
+     }
+ 
+-    // Método para guardar el reporte en Firebase
+     private void guardarReporte(String estado) {
+         String idReporte = reportesRef.push().getKey();
+-
+-        // Obtener la fecha y hora actuales
+         SimpleDateFormat sdfDate = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+         SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+         String fechaActual = sdfDate.format(Calendar.getInstance().getTime());
+         String horaActual = sdfTime.format(Calendar.getInstance().getTime());
+-
+-        // Crear el objeto Reporte
+         Reporte reporte = new Reporte(
+                 idReporte,
+                 idConductor,
+@@ -148,10 +135,9 @@
+     }
+ 
+     private void guardarProblema() {
+-        String idProblema = reportesRef.push().getKey(); // Puedes usar otra referencia si necesitas separar los problemas
++        String idProblema = reportesRef.push().getKey();
+         String descripcion = etDescripcionProblema.getText().toString().trim();
+ 
+-        // Crear el objeto Problema
+         Problema problema = new Problema(
+                 idProblema,
+                 idConductor,
+@@ -160,13 +146,9 @@
+                 new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Calendar.getInstance().getTime()),
+                 new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Calendar.getInstance().getTime())
+         );
+-
+         DatabaseReference problemasRef = FirebaseDatabase.getInstance().getReference("Problemas");
+-
+-        // Guardar el problema en Firebase
+         problemasRef.child(idProblema).setValue(problema).addOnCompleteListener(task -> {
+             if (task.isSuccessful()) {
+-                // Actualizar el estado del paquete a "Devuelto"
+                 DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
+                 paquetesRef.child(idPaquete).child("estado").setValue("Devuelto").addOnCompleteListener(updateTask -> {
+                     if (updateTask.isSuccessful()) {
+@@ -182,14 +164,27 @@
+         });
+     }
+ 
+-    // Subir foto a Firebase Storage
+     private void subirFoto(Uri uri, String idReporte) {
+         StorageReference fotoRef = storageRef.child("reportes/" + idReporte + ".jpg");
+         fotoRef.putFile(uri)
+                 .addOnSuccessListener(taskSnapshot -> fotoRef.getDownloadUrl().addOnSuccessListener(url -> {
+-                    reportesRef.child(idReporte).child("fotoUrl").setValue(url.toString());
+-                    Toast.makeText(this, "Reporte guardado correctamente", Toast.LENGTH_SHORT).show();
+-                    finish(); // Cierra esta actividad después de subir la foto
++                    reportesRef.child(idReporte).child("fotoUrl").setValue(url.toString())
++                            .addOnCompleteListener(task -> {
++                                if (task.isSuccessful()) {
++                                    DatabaseReference paquetesRef = FirebaseDatabase.getInstance().getReference("Paquetes");
++                                    paquetesRef.child(idPaquete).child("estado").setValue("Entregado")
++                                            .addOnCompleteListener(updateTask -> {
++                                                if (updateTask.isSuccessful()) {
++                                                    Toast.makeText(this, "Reporte y estado del paquete actualizados correctamente", Toast.LENGTH_SHORT).show();
++                                                    finish();
++                                                } else {
++                                                    Toast.makeText(this, "Error al actualizar el estado del paquete", Toast.LENGTH_SHORT).show();
++                                                }
++                                            });
++                                } else {
++                                    Toast.makeText(this, "Error al guardar la URL de la foto", Toast.LENGTH_SHORT).show();
++                                }
++                            });
+                 }))
+                 .addOnFailureListener(e -> Toast.makeText(this, "Error al subir la foto", Toast.LENGTH_SHORT).show());
+     }
+@@ -198,7 +193,6 @@
+     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+         super.onActivityResult(requestCode, resultCode, data);
+         if (requestCode == GALLERY_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+-            // Obtener la URI de la foto seleccionada
+             photoUri = data.getData();
+             ivFoto.setVisibility(View.VISIBLE);
+             ivFoto.setImageURI(photoUri);
+Index: app/src/main/java/com/example/enviaya/Usuario.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\npublic class Usuario {\r\n\r\n    private String id;\r\n    private String nombre;\r\n    private String correo;\r\n    private String telefono;\r\n    private String tipoUsuario; // \"admin\" o \"conductor\"\r\n\r\n    // Campos específicos para conductores\r\n    private String matriculaVehiculo;\r\n    private String tipoLicencia;\r\n    private Boolean disponibilidad;\r\n\r\n    // Constructor vacío (requerido para Firebase)\r\n    public Usuario() {\r\n    }\r\n\r\n    // Constructor para administradores\r\n    public Usuario(String id, String nombre, String correo, String telefono, String tipoUsuario) {\r\n        this.id = id;\r\n        this.nombre = nombre;\r\n        this.correo = correo;\r\n        this.telefono = telefono;\r\n        this.tipoUsuario = tipoUsuario;\r\n        this.matriculaVehiculo = null; // No aplica a administradores\r\n        this.tipoLicencia = null; // No aplica a administradores\r\n        this.disponibilidad = null; // No aplica a administradores\r\n    }\r\n\r\n    // Constructor para conductores\r\n    public Usuario(String id, String nombre, String correo, String telefono, String tipoUsuario,\r\n                   String matriculaVehiculo, String tipoLicencia, Boolean disponibilidad) {\r\n        this.id = id;\r\n        this.nombre = nombre;\r\n        this.correo = correo;\r\n        this.telefono = telefono;\r\n        this.tipoUsuario = tipoUsuario;\r\n        this.matriculaVehiculo = matriculaVehiculo;\r\n        this.tipoLicencia = tipoLicencia;\r\n        this.disponibilidad = disponibilidad;\r\n    }\r\n\r\n    // Getters y Setters\r\n\r\n    public String getId() {\r\n        return id;\r\n    }\r\n\r\n    public void setId(String id) {\r\n        this.id = id;\r\n    }\r\n\r\n    public String getNombre() {\r\n        return nombre;\r\n    }\r\n\r\n    public void setNombre(String nombre) {\r\n        this.nombre = nombre;\r\n    }\r\n\r\n    public String getCorreo() {\r\n        return correo;\r\n    }\r\n\r\n    public void setCorreo(String correo) {\r\n        this.correo = correo;\r\n    }\r\n\r\n    public String getTelefono() {\r\n        return telefono;\r\n    }\r\n\r\n    public void setTelefono(String telefono) {\r\n        this.telefono = telefono;\r\n    }\r\n\r\n    public String getTipoUsuario() {\r\n        return tipoUsuario;\r\n    }\r\n\r\n    public void setTipoUsuario(String tipoUsuario) {\r\n        this.tipoUsuario = tipoUsuario;\r\n    }\r\n\r\n    public String getMatriculaVehiculo() {\r\n        return matriculaVehiculo;\r\n    }\r\n\r\n    public void setMatriculaVehiculo(String matriculaVehiculo) {\r\n        this.matriculaVehiculo = matriculaVehiculo;\r\n    }\r\n\r\n    public String getTipoLicencia() {\r\n        return tipoLicencia;\r\n    }\r\n\r\n    public void setTipoLicencia(String tipoLicencia) {\r\n        this.tipoLicencia = tipoLicencia;\r\n    }\r\n\r\n    public Boolean getDisponibilidad() {\r\n        return disponibilidad;\r\n    }\r\n\r\n    public void setDisponibilidad(Boolean disponibilidad) {\r\n        this.disponibilidad = disponibilidad;\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/Usuario.java b/app/src/main/java/com/example/enviaya/Usuario.java
+--- a/app/src/main/java/com/example/enviaya/Usuario.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/Usuario.java	(date 1732882826879)
+@@ -8,16 +8,14 @@
+     private String telefono;
+     private String tipoUsuario; // "admin" o "conductor"
+ 
+-    // Campos específicos para conductores
+     private String matriculaVehiculo;
+     private String tipoLicencia;
+     private Boolean disponibilidad;
+ 
+-    // Constructor vacío (requerido para Firebase)
+     public Usuario() {
+     }
+ 
+-    // Constructor para administradores
++    //administradores
+     public Usuario(String id, String nombre, String correo, String telefono, String tipoUsuario) {
+         this.id = id;
+         this.nombre = nombre;
+@@ -29,7 +27,7 @@
+         this.disponibilidad = null; // No aplica a administradores
+     }
+ 
+-    // Constructor para conductores
++    // conductores
+     public Usuario(String id, String nombre, String correo, String telefono, String tipoUsuario,
+                    String matriculaVehiculo, String tipoLicencia, Boolean disponibilidad) {
+         this.id = id;
+@@ -42,7 +40,6 @@
+         this.disponibilidad = disponibilidad;
+     }
+ 
+-    // Getters y Setters
+ 
+     public String getId() {
+         return id;
+Index: app/src/main/java/com/example/enviaya/CreateUserActivity.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\nimport android.os.Bundle;\r\nimport android.text.TextUtils;\r\nimport android.util.Patterns;\r\nimport android.view.View;\r\nimport android.widget.Button;\r\nimport android.widget.EditText;\r\nimport android.widget.LinearLayout;\r\nimport android.widget.Toast;\r\n\r\nimport androidx.appcompat.app.AppCompatActivity;\r\n\r\nimport com.google.firebase.auth.FirebaseAuth;\r\nimport com.google.firebase.auth.FirebaseUser;\r\nimport com.google.firebase.database.DatabaseReference;\r\nimport com.google.firebase.database.FirebaseDatabase;\r\n\r\npublic class CreateUserActivity extends AppCompatActivity {\r\n\r\n    private LinearLayout adminForm, conductorForm;\r\n    private Button btnAdmin, btnConductor, crearAdminButton, crearConductorButton;\r\n    private DatabaseReference usersRef;\r\n    private FirebaseAuth mAuth;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        setContentView(R.layout.activity_create_user);\r\n\r\n        // Inicializar vistas\r\n        adminForm = findViewById(R.id.adminForm);\r\n        conductorForm = findViewById(R.id.conductorForm);\r\n        btnAdmin = findViewById(R.id.btnAdmin);\r\n        btnConductor = findViewById(R.id.btnConductor);\r\n        crearAdminButton = findViewById(R.id.crearAdminButton);\r\n        crearConductorButton = findViewById(R.id.crearConductorButton);\r\n\r\n        // Inicializar Firebase\r\n        mAuth = FirebaseAuth.getInstance();\r\n        usersRef = FirebaseDatabase.getInstance().getReference(\"Usuarios\");\r\n\r\n        // Configurar botones para alternar entre formularios\r\n        btnAdmin.setOnClickListener(v -> mostrarFormularioAdmin());\r\n        btnConductor.setOnClickListener(v -> mostrarFormularioConductor());\r\n\r\n        // Configurar los botones para crear usuarios\r\n        crearAdminButton.setOnClickListener(v -> crearAdmin());\r\n        crearConductorButton.setOnClickListener(v -> crearConductor());\r\n    }\r\n\r\n    private void mostrarFormularioAdmin() {\r\n        adminForm.setVisibility(View.VISIBLE);\r\n        conductorForm.setVisibility(View.GONE);\r\n    }\r\n\r\n    private void mostrarFormularioConductor() {\r\n        adminForm.setVisibility(View.GONE);\r\n        conductorForm.setVisibility(View.VISIBLE);\r\n    }\r\n\r\n    private void crearAdmin() {\r\n        String nombre = ((EditText) findViewById(R.id.nombreAdminEditText)).getText().toString().trim();\r\n        String correo = ((EditText) findViewById(R.id.correoAdminEditText)).getText().toString().trim();\r\n        String telefono = ((EditText) findViewById(R.id.telefonoAdminEditText)).getText().toString().trim();\r\n\r\n        // Validación de campos\r\n        if (nombre.isEmpty() || correo.isEmpty() || telefono.isEmpty()) {\r\n            Toast.makeText(this, \"Todos los campos son obligatorios\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        // Crear usuario en Firebase Authentication sin contraseña (se enviará un correo de verificación)\r\n        mAuth.createUserWithEmailAndPassword(correo, \"temporaryPassword\") // Contraseña temporal\r\n                .addOnCompleteListener(this, task -> {\r\n                    if (task.isSuccessful()) {\r\n\r\n                        FirebaseUser user = mAuth.getCurrentUser();\r\n                        if (user != null) {\r\n                            // Enviar correo de verificación\r\n                            user.sendEmailVerification()\r\n                                    .addOnCompleteListener(verifyTask -> {\r\n                                        if (verifyTask.isSuccessful()) {\r\n                                            // Usuario creado, correo de verificación enviado\r\n                                            String userId = user.getUid();\r\n\r\n                                            // Crear el objeto de administrador (sin contraseña)\r\n                                            Usuario admin = new Usuario(userId, nombre, correo, telefono, \"admin\");\r\n\r\n                                            usersRef.child(userId).setValue(admin)\r\n                                                    .addOnCompleteListener(dbTask -> {\r\n                                                        if (dbTask.isSuccessful()) {\r\n                                                            Toast.makeText(CreateUserActivity.this, \"Administrador creado exitosamente, correo de verificación enviado.\", Toast.LENGTH_LONG).show();\r\n                                                        } else {\r\n                                                            Toast.makeText(CreateUserActivity.this, \"Error al crear administrador en la base de datos\", Toast.LENGTH_SHORT).show();\r\n                                                        }\r\n                                                    });\r\n                                        } else {\r\n                                            Toast.makeText(CreateUserActivity.this, \"Error al enviar correo de verificación\", Toast.LENGTH_SHORT).show();\r\n                                        }\r\n                                    });\r\n                        }\r\n                    } else {\r\n                        Toast.makeText(CreateUserActivity.this, \"Error al crear administrador\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n    }\r\n\r\n    private void crearConductor() {\r\n\r\n        String nombre = ((EditText) findViewById(R.id.nombreConductorEditText)).getText().toString().trim();\r\n        String correo = ((EditText) findViewById(R.id.correoConductorEditText)).getText().toString().trim();\r\n        String telefono = ((EditText) findViewById(R.id.telefonoConductorEditText)).getText().toString().trim();\r\n        String matricula = ((EditText) findViewById(R.id.matriculaEditText)).getText().toString().trim();\r\n        String licencia = ((EditText) findViewById(R.id.licenciaEditText)).getText().toString().trim();\r\n\r\n        // Validación de campos\r\n        if (nombre.isEmpty() || correo.isEmpty() || telefono.isEmpty() || matricula.isEmpty() || licencia.isEmpty()) {\r\n            Toast.makeText(this, \"Todos los campos son obligatorios\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        // Crear usuario en Firebase Authentication sin contraseña (se enviará un correo de verificación)\r\n        mAuth.createUserWithEmailAndPassword(correo, \"temporaryPassword\") // Contraseña temporal\r\n                .addOnCompleteListener(this, task -> {\r\n                    if (task.isSuccessful()) {\r\n\r\n                        FirebaseUser user = mAuth.getCurrentUser();\r\n                        if (user != null) {\r\n                            // Enviar correo de verificación\r\n                            user.sendEmailVerification()\r\n                                    .addOnCompleteListener(verifyTask -> {\r\n                                        if (verifyTask.isSuccessful()) {\r\n                                            // Usuario creado, correo de verificación enviado\r\n                                            String userId = user.getUid();\r\n\r\n                                            // Crear el objeto de conductor (sin contraseña)\r\n                                            Usuario conductor = new Usuario(userId, nombre, correo, telefono, \"conductor\", matricula, licencia, true);\r\n\r\n                                            usersRef.child(userId).setValue(conductor)\r\n                                                    .addOnCompleteListener(dbTask -> {\r\n                                                        if (dbTask.isSuccessful()) {\r\n                                                            Toast.makeText(CreateUserActivity.this, \"Conductor creado exitosamente, correo de verificación enviado.\", Toast.LENGTH_LONG).show();\r\n                                                        } else {\r\n                                                            Toast.makeText(CreateUserActivity.this, \"Error al crear conductor en la base de datos\", Toast.LENGTH_SHORT).show();\r\n                                                        }\r\n                                                    });\r\n                                        } else {\r\n                                            Toast.makeText(CreateUserActivity.this, \"Error al enviar correo de verificación\", Toast.LENGTH_SHORT).show();\r\n                                        }\r\n                                    });\r\n                        }\r\n                    } else {\r\n                        Toast.makeText(CreateUserActivity.this, \"Error al crear conductor\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n    }\r\n\r\n    private boolean validarCampos(String nombre, String correo, String telefono, String contraseña) {\r\n        if (nombre.isEmpty() || correo.isEmpty() || telefono.isEmpty() || contraseña.isEmpty()) {\r\n            Toast.makeText(this, \"Todos los campos son obligatorios\", Toast.LENGTH_SHORT).show();\r\n            return false;\r\n        }\r\n\r\n        if (!Patterns.EMAIL_ADDRESS.matcher(correo).matches()) {\r\n            Toast.makeText(this, \"Correo no válido\", Toast.LENGTH_SHORT).show();\r\n            return false;\r\n        }\r\n\r\n        if (telefono.length() < 10) {\r\n            Toast.makeText(this, \"Teléfono debe tener al menos 10 dígitos\", Toast.LENGTH_SHORT).show();\r\n            return false;\r\n        }\r\n\r\n        if (contraseña.length() < 6) {\r\n            Toast.makeText(this, \"La contraseña debe tener al menos 6 caracteres\", Toast.LENGTH_SHORT).show();\r\n            return false;\r\n        }\r\n\r\n        return true;\r\n    }\r\n\r\n    private void guardarUsuarioEnDB(String userId, Usuario usuario, String mensajeExito) {\r\n        usersRef.child(userId).setValue(usuario)\r\n                .addOnCompleteListener(task -> {\r\n                    if (task.isSuccessful()) {\r\n                        Toast.makeText(this, mensajeExito, Toast.LENGTH_SHORT).show();\r\n                    } else {\r\n                        Toast.makeText(this, \"Error al guardar el usuario en la base de datos\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n    }\r\n\r\n    private void manejarErrores(Exception e) {\r\n        if (e != null && e.getMessage().contains(\"email\")) {\r\n            Toast.makeText(this, \"El correo ya está registrado\", Toast.LENGTH_SHORT).show();\r\n        } else {\r\n            Toast.makeText(this, \"Error al crear usuario: \" + e.getMessage(), Toast.LENGTH_SHORT).show();\r\n        }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/CreateUserActivity.java b/app/src/main/java/com/example/enviaya/CreateUserActivity.java
+--- a/app/src/main/java/com/example/enviaya/CreateUserActivity.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/CreateUserActivity.java	(date 1733489657253)
+@@ -28,7 +28,6 @@
+         super.onCreate(savedInstanceState);
+         setContentView(R.layout.activity_create_user);
+ 
+-        // Inicializar vistas
+         adminForm = findViewById(R.id.adminForm);
+         conductorForm = findViewById(R.id.conductorForm);
+         btnAdmin = findViewById(R.id.btnAdmin);
+@@ -36,15 +35,12 @@
+         crearAdminButton = findViewById(R.id.crearAdminButton);
+         crearConductorButton = findViewById(R.id.crearConductorButton);
+ 
+-        // Inicializar Firebase
+         mAuth = FirebaseAuth.getInstance();
+         usersRef = FirebaseDatabase.getInstance().getReference("Usuarios");
+ 
+-        // Configurar botones para alternar entre formularios
+         btnAdmin.setOnClickListener(v -> mostrarFormularioAdmin());
+         btnConductor.setOnClickListener(v -> mostrarFormularioConductor());
+ 
+-        // Configurar los botones para crear usuarios
+         crearAdminButton.setOnClickListener(v -> crearAdmin());
+         crearConductorButton.setOnClickListener(v -> crearConductor());
+     }
+@@ -70,21 +66,16 @@
+             return;
+         }
+ 
+-        // Crear usuario en Firebase Authentication sin contraseña (se enviará un correo de verificación)
+-        mAuth.createUserWithEmailAndPassword(correo, "temporaryPassword") // Contraseña temporal
++        mAuth.createUserWithEmailAndPassword(correo, "=,Z]=opQ(5c7kY0<Oz2<") // temporal
+                 .addOnCompleteListener(this, task -> {
+                     if (task.isSuccessful()) {
+ 
+                         FirebaseUser user = mAuth.getCurrentUser();
+                         if (user != null) {
+-                            // Enviar correo de verificación
+                             user.sendEmailVerification()
+                                     .addOnCompleteListener(verifyTask -> {
+                                         if (verifyTask.isSuccessful()) {
+-                                            // Usuario creado, correo de verificación enviado
+                                             String userId = user.getUid();
+-
+-                                            // Crear el objeto de administrador (sin contraseña)
+                                             Usuario admin = new Usuario(userId, nombre, correo, telefono, "admin");
+ 
+                                             usersRef.child(userId).setValue(admin)
+@@ -114,27 +105,21 @@
+         String matricula = ((EditText) findViewById(R.id.matriculaEditText)).getText().toString().trim();
+         String licencia = ((EditText) findViewById(R.id.licenciaEditText)).getText().toString().trim();
+ 
+-        // Validación de campos
+         if (nombre.isEmpty() || correo.isEmpty() || telefono.isEmpty() || matricula.isEmpty() || licencia.isEmpty()) {
+             Toast.makeText(this, "Todos los campos son obligatorios", Toast.LENGTH_SHORT).show();
+             return;
+         }
+ 
+-        // Crear usuario en Firebase Authentication sin contraseña (se enviará un correo de verificación)
+-        mAuth.createUserWithEmailAndPassword(correo, "temporaryPassword") // Contraseña temporal
++        mAuth.createUserWithEmailAndPassword(correo, "=,Z]=opQ(5c7kY0<Oz2<") // temporal
+                 .addOnCompleteListener(this, task -> {
+                     if (task.isSuccessful()) {
+ 
+                         FirebaseUser user = mAuth.getCurrentUser();
+                         if (user != null) {
+-                            // Enviar correo de verificación
+                             user.sendEmailVerification()
+                                     .addOnCompleteListener(verifyTask -> {
+                                         if (verifyTask.isSuccessful()) {
+-                                            // Usuario creado, correo de verificación enviado
+                                             String userId = user.getUid();
+-
+-                                            // Crear el objeto de conductor (sin contraseña)
+                                             Usuario conductor = new Usuario(userId, nombre, correo, telefono, "conductor", matricula, licencia, true);
+ 
+                                             usersRef.child(userId).setValue(conductor)
+Index: app/src/main/java/com/example/enviaya/Paquete.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\npublic class Paquete {\r\n\r\n    private String idPaquete;\r\n    private String estado; // Puede ser \"pendiente\", \"entregado\", \"devuelto\"\r\n    private String direccionEntrega;\r\n    private String prioridad; // Puede ser \"alta\", \"media\", \"baja\"\r\n    private double peso; // Peso del paquete en kilogramos\r\n    private String fotoUrl; // URL de la foto del paquete\r\n\r\n    // Constructor vacío (requerido para Firebase)\r\n    public Paquete() {\r\n    }\r\n\r\n    // Constructor con parámetros\r\n    public Paquete(String idPaquete, String estado, String direccionEntrega, String prioridad, double peso, String fotoUrl) {\r\n        this.idPaquete = idPaquete;\r\n        this.estado = estado;\r\n        this.direccionEntrega = direccionEntrega;\r\n        this.prioridad = prioridad;\r\n        this.peso = peso;\r\n        this.fotoUrl = fotoUrl;\r\n    }\r\n\r\n    // Getters y setters\r\n\r\n    public String getIdPaquete() {\r\n        return idPaquete;\r\n    }\r\n\r\n    public void setIdPaquete(String idPaquete) {\r\n        this.idPaquete = idPaquete;\r\n    }\r\n\r\n    public String getEstado() {\r\n        return estado;\r\n    }\r\n\r\n    public void setEstado(String estado) {\r\n        this.estado = estado;\r\n    }\r\n\r\n    public String getDireccionEntrega() {\r\n        return direccionEntrega;\r\n    }\r\n\r\n    public void setDireccionEntrega(String direccionEntrega) {\r\n        this.direccionEntrega = direccionEntrega;\r\n    }\r\n\r\n    public String getPrioridad() {\r\n        return prioridad;\r\n    }\r\n\r\n    public void setPrioridad(String prioridad) {\r\n        this.prioridad = prioridad;\r\n    }\r\n\r\n    public double getPeso() {\r\n        return peso;\r\n    }\r\n\r\n    public void setPeso(double peso) {\r\n        this.peso = peso;\r\n    }\r\n\r\n    public String getFotoUrl() {\r\n        return fotoUrl;\r\n    }\r\n\r\n    public void setFotoUrl(String fotoUrl) {\r\n        this.fotoUrl = fotoUrl;\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/Paquete.java b/app/src/main/java/com/example/enviaya/Paquete.java
+--- a/app/src/main/java/com/example/enviaya/Paquete.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/Paquete.java	(date 1732882826898)
+@@ -3,17 +3,15 @@
+ public class Paquete {
+ 
+     private String idPaquete;
+-    private String estado; // Puede ser "pendiente", "entregado", "devuelto"
++    private String estado;
+     private String direccionEntrega;
+-    private String prioridad; // Puede ser "alta", "media", "baja"
+-    private double peso; // Peso del paquete en kilogramos
+-    private String fotoUrl; // URL de la foto del paquete
++    private String prioridad;
++    private double peso;
++    private String fotoUrl;
+ 
+-    // Constructor vacío (requerido para Firebase)
+     public Paquete() {
+     }
+ 
+-    // Constructor con parámetros
+     public Paquete(String idPaquete, String estado, String direccionEntrega, String prioridad, double peso, String fotoUrl) {
+         this.idPaquete = idPaquete;
+         this.estado = estado;
+@@ -23,8 +21,6 @@
+         this.fotoUrl = fotoUrl;
+     }
+ 
+-    // Getters y setters
+-
+     public String getIdPaquete() {
+         return idPaquete;
+     }
+Index: app/src/main/java/com/example/enviaya/CreatePaqueteActivity.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\nimport android.graphics.Bitmap;\r\nimport android.graphics.Canvas;\r\nimport android.graphics.Color;\r\nimport android.graphics.Paint;\r\nimport android.os.Bundle;\r\nimport android.os.Environment;\r\nimport android.text.TextUtils;\r\nimport android.widget.Button;\r\nimport android.widget.EditText;\r\nimport android.widget.RadioButton;\r\nimport android.widget.RadioGroup;\r\nimport android.widget.Toast;\r\n\r\nimport androidx.appcompat.app.AppCompatActivity;\r\n\r\nimport com.google.firebase.database.DatabaseReference;\r\nimport com.google.firebase.database.FirebaseDatabase;\r\n\r\nimport java.io.File;\r\nimport java.io.FileOutputStream;\r\nimport java.text.SimpleDateFormat;\r\nimport java.util.Date;\r\nimport java.util.Locale;\r\n\r\npublic class CreatePaqueteActivity extends AppCompatActivity {\r\n\r\n    private EditText direccionEditText, pesoEditText;\r\n    private Button guardarPaqueteButton;\r\n    private DatabaseReference paquetesRef;\r\n    private DatabaseReference reportesRef;\r\n    private RadioGroup prioridadRadioGroup;\r\n    private RadioButton prioridadAltaRadioButton, prioridadBajaRadioButton;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        setContentView(R.layout.activity_create_paquete);\r\n\r\n        direccionEditText = findViewById(R.id.direccionEditText);\r\n        pesoEditText = findViewById(R.id.pesoEditText);\r\n        guardarPaqueteButton = findViewById(R.id.guardarPaqueteButton);\r\n\r\n        prioridadRadioGroup = findViewById(R.id.prioridadRadioGroup);\r\n        prioridadAltaRadioButton = findViewById(R.id.prioridadAltaRadioButton);\r\n        prioridadBajaRadioButton = findViewById(R.id.prioridadBajaRadioButton);\r\n\r\n        paquetesRef = FirebaseDatabase.getInstance().getReference(\"Paquetes\");\r\n        reportesRef = FirebaseDatabase.getInstance().getReference(\"Reportes\");\r\n\r\n        guardarPaqueteButton.setOnClickListener(v -> guardarPaquete());\r\n    }\r\n\r\n    private void guardarPaquete() {\r\n        String direccion = direccionEditText.getText().toString().trim();\r\n        String pesoStr = pesoEditText.getText().toString().trim();\r\n\r\n        if (TextUtils.isEmpty(direccion) || TextUtils.isEmpty(pesoStr)) {\r\n            Toast.makeText(this, \"Todos los campos son obligatorios\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        double peso;\r\n        try {\r\n            peso = Double.parseDouble(pesoStr);\r\n        } catch (NumberFormatException e) {\r\n            Toast.makeText(this, \"El peso debe ser un número válido\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        String prioridad;\r\n        int selectedPriorityId = prioridadRadioGroup.getCheckedRadioButtonId();\r\n        if (selectedPriorityId == R.id.prioridadAltaRadioButton) {\r\n            prioridad = \"alta\";\r\n        } else if (selectedPriorityId == R.id.prioridadBajaRadioButton) {\r\n            prioridad = \"baja\";\r\n        } else {\r\n            Toast.makeText(this, \"Por favor selecciona una prioridad\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        String estado = \"registrado\";\r\n\r\n        String paqueteId = paquetesRef.push().getKey();\r\n        String fotoUrl = \"\";\r\n        Paquete paquete = new Paquete(paqueteId, estado, direccion, prioridad, peso, fotoUrl);\r\n\r\n        paquetesRef.child(paqueteId).setValue(paquete)\r\n                .addOnCompleteListener(task -> {\r\n                    if (task.isSuccessful()) {\r\n                        Toast.makeText(this, \"Paquete guardado exitosamente\", Toast.LENGTH_SHORT).show();\r\n                        generarReporte(paqueteId, estado); // Generar reporte después de guardar el paquete\r\n                        generarYGuardarImagen(paquete);\r\n                        finish();\r\n                    } else {\r\n                        Toast.makeText(this, \"Error al guardar paquete\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n    }\r\n\r\n    private void generarReporte(String paqueteId, String estado) {\r\n        String idReporte = reportesRef.push().getKey();\r\n\r\n        String fecha = new SimpleDateFormat(\"dd/MM/yyyy\", Locale.getDefault()).format(new Date());\r\n        String hora = new SimpleDateFormat(\"HH:mm:ss\", Locale.getDefault()).format(new Date());\r\n\r\n        Reporte reporte = new Reporte(idReporte, \"\", paqueteId, estado, hora, fecha);\r\n\r\n        reportesRef.child(idReporte).setValue(reporte)\r\n                .addOnCompleteListener(task -> {\r\n                    if (task.isSuccessful()) {\r\n                        Toast.makeText(this, \"Reporte generado exitosamente\", Toast.LENGTH_SHORT).show();\r\n                    } else {\r\n                        Toast.makeText(this, \"Error al generar reporte\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n    }\r\n\r\n    private void generarYGuardarImagen(Paquete paquete) {\r\n        int width = 800;\r\n        int height = 600;\r\n        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);\r\n        Canvas canvas = new Canvas(bitmap);\r\n\r\n        canvas.drawColor(Color.WHITE);\r\n\r\n        Paint paint = new Paint();\r\n        paint.setColor(Color.BLACK);\r\n        paint.setTextSize(40);\r\n        paint.setAntiAlias(true);\r\n\r\n\r\n        int x = 50;\r\n        int y = 100;\r\n        canvas.drawText(\"Paquete Registrado\", x, y, paint);\r\n        y += 60;\r\n        canvas.drawText(\"ID: \" + paquete.getIdPaquete(), x, y, paint);\r\n        y += 60;\r\n        canvas.drawText(\"Dirección: \" + paquete.getDireccionEntrega(), x, y, paint);\r\n        y += 60;\r\n        canvas.drawText(\"Peso: \" + paquete.getPeso() + \" kg\", x, y, paint);\r\n        y += 60;\r\n        canvas.drawText(\"Prioridad: \" + paquete.getPrioridad(), x, y, paint);\r\n        y += 60;\r\n        canvas.drawText(\"Estado: \" + paquete.getEstado(), x, y, paint);\r\n\r\n        guardarImagenEnDispositivo(bitmap);\r\n    }\r\n\r\n    private void guardarImagenEnDispositivo(Bitmap bitmap) {\r\n        try {\r\n            File directorio = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), \"Paquetes\");\r\n            if (!directorio.exists()) {\r\n                directorio.mkdirs();\r\n            }\r\n\r\n            File archivoImagen = new File(directorio, \"paquete_\" + System.currentTimeMillis() + \".png\");\r\n            FileOutputStream outputStream = new FileOutputStream(archivoImagen);\r\n\r\n            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);\r\n            outputStream.flush();\r\n            outputStream.close();\r\n\r\n            Toast.makeText(this, \"Imagen guardada en: \" + archivoImagen.getAbsolutePath(), Toast.LENGTH_LONG).show();\r\n        } catch (Exception e) {\r\n            e.printStackTrace();\r\n            Toast.makeText(this, \"Error al guardar la imagen\", Toast.LENGTH_SHORT).show();\r\n        }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/CreatePaqueteActivity.java b/app/src/main/java/com/example/enviaya/CreatePaqueteActivity.java
+--- a/app/src/main/java/com/example/enviaya/CreatePaqueteActivity.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/CreatePaqueteActivity.java	(date 1732842879528)
+@@ -55,12 +55,10 @@
+     private void guardarPaquete() {
+         String direccion = direccionEditText.getText().toString().trim();
+         String pesoStr = pesoEditText.getText().toString().trim();
+-
+         if (TextUtils.isEmpty(direccion) || TextUtils.isEmpty(pesoStr)) {
+             Toast.makeText(this, "Todos los campos son obligatorios", Toast.LENGTH_SHORT).show();
+             return;
+         }
+-
+         double peso;
+         try {
+             peso = Double.parseDouble(pesoStr);
+@@ -68,7 +66,6 @@
+             Toast.makeText(this, "El peso debe ser un número válido", Toast.LENGTH_SHORT).show();
+             return;
+         }
+-
+         String prioridad;
+         int selectedPriorityId = prioridadRadioGroup.getCheckedRadioButtonId();
+         if (selectedPriorityId == R.id.prioridadAltaRadioButton) {
+@@ -79,18 +76,15 @@
+             Toast.makeText(this, "Por favor selecciona una prioridad", Toast.LENGTH_SHORT).show();
+             return;
+         }
+-
+         String estado = "registrado";
+-
+         String paqueteId = paquetesRef.push().getKey();
+         String fotoUrl = "";
+         Paquete paquete = new Paquete(paqueteId, estado, direccion, prioridad, peso, fotoUrl);
+-
+         paquetesRef.child(paqueteId).setValue(paquete)
+                 .addOnCompleteListener(task -> {
+                     if (task.isSuccessful()) {
+                         Toast.makeText(this, "Paquete guardado exitosamente", Toast.LENGTH_SHORT).show();
+-                        generarReporte(paqueteId, estado); // Generar reporte después de guardar el paquete
++                        generarReporte(paqueteId, estado);
+                         generarYGuardarImagen(paquete);
+                         finish();
+                     } else {
+Index: app/src/main/java/com/example/enviaya/Problema.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\npublic class Problema {\r\n    private String idProblema;\r\n    private String idConductor;\r\n    private String idPaquete; // Puede ser nulo si no está asociado a un paquete\r\n    private String descripcion;\r\n    private String hora;\r\n    private String fecha;\r\n\r\n    // Constructor vacío requerido para Firebase\r\n    public Problema() {\r\n    }\r\n\r\n    // Constructor con todos los parámetros\r\n    public Problema(String idProblema, String idConductor, String idPaquete, String descripcion, String hora, String fecha) {\r\n        this.idProblema = idProblema;\r\n        this.idConductor = idConductor;\r\n        this.idPaquete = idPaquete;\r\n        this.descripcion = descripcion;\r\n        this.hora = hora;\r\n        this.fecha = fecha;\r\n    }\r\n\r\n    // Getters y Setters\r\n    public String getIdProblema() {\r\n        return idProblema;\r\n    }\r\n\r\n    public void setIdProblema(String idProblema) {\r\n        this.idProblema = idProblema;\r\n    }\r\n\r\n    public String getIdConductor() {\r\n        return idConductor;\r\n    }\r\n\r\n    public void setIdConductor(String idConductor) {\r\n        this.idConductor = idConductor;\r\n    }\r\n\r\n    public String getIdPaquete() {\r\n        return idPaquete;\r\n    }\r\n\r\n    public void setIdPaquete(String idPaquete) {\r\n        this.idPaquete = idPaquete;\r\n    }\r\n\r\n    public String getDescripcion() {\r\n        return descripcion;\r\n    }\r\n\r\n    public void setDescripcion(String descripcion) {\r\n        this.descripcion = descripcion;\r\n    }\r\n\r\n    public String getHora() {\r\n        return hora;\r\n    }\r\n\r\n    public void setHora(String hora) {\r\n        this.hora = hora;\r\n    }\r\n\r\n    public String getFecha() {\r\n        return fecha;\r\n    }\r\n\r\n    public void setFecha(String fecha) {\r\n        this.fecha = fecha;\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/Problema.java b/app/src/main/java/com/example/enviaya/Problema.java
+--- a/app/src/main/java/com/example/enviaya/Problema.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/Problema.java	(date 1732882826869)
+@@ -3,16 +3,14 @@
+ public class Problema {
+     private String idProblema;
+     private String idConductor;
+-    private String idPaquete; // Puede ser nulo si no está asociado a un paquete
++    private String idPaquete;
+     private String descripcion;
+     private String hora;
+     private String fecha;
+ 
+-    // Constructor vacío requerido para Firebase
+     public Problema() {
+     }
+ 
+-    // Constructor con todos los parámetros
+     public Problema(String idProblema, String idConductor, String idPaquete, String descripcion, String hora, String fecha) {
+         this.idProblema = idProblema;
+         this.idConductor = idConductor;
+@@ -22,7 +20,6 @@
+         this.fecha = fecha;
+     }
+ 
+-    // Getters y Setters
+     public String getIdProblema() {
+         return idProblema;
+     }
+Index: app/src/main/java/com/example/enviaya/AdminActivity.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\nimport android.app.AlertDialog;\r\nimport android.content.Intent;\r\nimport android.os.Bundle;\r\nimport android.view.View;\r\nimport android.widget.AdapterView;\r\nimport android.widget.ArrayAdapter;\r\nimport android.widget.Button;\r\nimport android.widget.Spinner;\r\nimport android.widget.Toast;\r\nimport androidx.appcompat.app.AppCompatActivity;\r\nimport androidx.recyclerview.widget.LinearLayoutManager;\r\nimport androidx.recyclerview.widget.RecyclerView;\r\nimport com.google.firebase.database.DatabaseReference;\r\nimport com.google.firebase.database.FirebaseDatabase;\r\nimport com.google.firebase.database.DataSnapshot;\r\nimport com.google.firebase.database.DatabaseError;\r\nimport com.google.firebase.database.ValueEventListener;\r\nimport java.util.ArrayList;\r\nimport java.util.List;\r\nimport java.text.SimpleDateFormat;\r\nimport java.util.Calendar;\r\n\r\npublic class AdminActivity extends AppCompatActivity {\r\n\r\n    private RecyclerView paqueteRecyclerView;\r\n    private PaqueteAdapter paqueteAdapter;\r\n    private List<Paquete> paqueteList;\r\n    private List<Paquete> paquetesSeleccionados;\r\n    private Button asignarPaqueteButton;\r\n    private Button btnCreatePaquete;\r\n    private Button btnVerReportes;\r\n    private Spinner conductorSpinner;\r\n\r\n    private Spinner spinnerEstadoPaquetes; // Spinner para filtrar estados\r\n    private String estadoSeleccionado = \"registrado\"; // Estado inicial predeterminado\r\n\r\n    private DatabaseReference paquetesRef;\r\n    private DatabaseReference conductoresRef;\r\n    private DatabaseReference reportesRef;\r\n\r\n    private List<String> conductorIds;\r\n    private List<String> conductorNombres;\r\n\r\n    private String adminEmail;\r\n    private String adminId;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        setContentView(R.layout.activity_admin);\r\n\r\n        // Inicializar el Spinner de estados\r\n        spinnerEstadoPaquetes = findViewById(R.id.spinnerEstadoPaquetes);\r\n\r\n        // Configurar adaptador para el Spinner\r\n        ArrayAdapter<String> estadoAdapter = new ArrayAdapter<>(this,\r\n                android.R.layout.simple_spinner_item,\r\n                new String[]{\"registrado\", \"pendiente\", \"Devuelto\"});\r\n        estadoAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);\r\n        spinnerEstadoPaquetes.setAdapter(estadoAdapter);\r\n\r\n        // Manejar cambios en la selección del Spinner\r\n        spinnerEstadoPaquetes.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {\r\n            @Override\r\n            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {\r\n                estadoSeleccionado = parent.getItemAtPosition(position).toString();\r\n                cargarPaquetes(); // Recargar paquetes según el nuevo filtro\r\n            }\r\n\r\n            @Override\r\n            public void onNothingSelected(AdapterView<?> parent) {\r\n                // No hacer nada\r\n            }\r\n        });\r\n\r\n        btnVerReportes = findViewById(R.id.btnVerReportes);\r\n        btnVerReportes.setOnClickListener(v -> {\r\n            Intent intent = new Intent(AdminActivity.this, ReportesActivity.class);\r\n            startActivity(intent);\r\n        });\r\n\r\n\r\n        adminEmail = getIntent().getStringExtra(\"email\");\r\n\r\n        if (adminEmail != null) {\r\n            buscarIdAdministrador(adminEmail, new AdminEmailCallback() {\r\n                @Override\r\n                public void onCallback(String idAdministrador) {\r\n                    adminId = idAdministrador; // Guardamos el ID del administrador\r\n                }\r\n            });\r\n        }\r\n\r\n        paquetesRef = FirebaseDatabase.getInstance().getReference(\"Paquetes\");\r\n        conductoresRef = FirebaseDatabase.getInstance().getReference(\"Usuarios\");\r\n        reportesRef = FirebaseDatabase.getInstance().getReference(\"Reportes\");\r\n\r\n        paqueteRecyclerView = findViewById(R.id.paqueteRecyclerView);\r\n        asignarPaqueteButton = findViewById(R.id.asignarPaqueteButton);\r\n        btnCreatePaquete = findViewById(R.id.btnAddPackage);\r\n        conductorSpinner = findViewById(R.id.conductorSpinner);\r\n\r\n        paqueteList = new ArrayList<>();\r\n        paquetesSeleccionados = new ArrayList<>();\r\n        conductorIds = new ArrayList<>();\r\n        conductorNombres = new ArrayList<>();\r\n\r\n        paqueteRecyclerView.setLayoutManager(new LinearLayoutManager(this));\r\n        paqueteAdapter = new PaqueteAdapter(paqueteList, paquetesSeleccionados, this::mostrarDialogoDetallesPaquete);\r\n        paqueteRecyclerView.setAdapter(paqueteAdapter);\r\n\r\n        cargarPaquetes();\r\n        cargarConductores();\r\n\r\n        asignarPaqueteButton.setOnClickListener(v -> asignarPaquetesAConductor());\r\n\r\n        btnCreatePaquete.setOnClickListener(v -> {\r\n            if (adminEmail != null) {\r\n                // Verificar si el usuario es administrador\r\n                buscarIdAdministrador(adminEmail, new AdminEmailCallback() {\r\n                    @Override\r\n                    public void onCallback(String idAdministrador) {\r\n                        if (idAdministrador != null) {\r\n                            // El usuario es administrador, proceder con la creación del paquete\r\n                            Intent intent = new Intent(AdminActivity.this, CreatePaqueteActivity.class);\r\n                            startActivity(intent);\r\n                        } else {\r\n                            // El usuario no es administrador, mostrar mensaje\r\n                            Toast.makeText(AdminActivity.this, \"Solo un administrador puede crear paquetes.\", Toast.LENGTH_SHORT).show();\r\n                        }\r\n                    }\r\n                });\r\n            } else {\r\n                Toast.makeText(AdminActivity.this, \"No se ha encontrado el correo del administrador.\", Toast.LENGTH_SHORT).show();\r\n            }\r\n        });\r\n    }\r\n\r\n    private void cargarPaquetes() {\r\n        // Filtrar paquetes según el estado seleccionado\r\n        paquetesRef.orderByChild(\"estado\").equalTo(estadoSeleccionado).addValueEventListener(new ValueEventListener() {\r\n            @Override\r\n            public void onDataChange(DataSnapshot snapshot) {\r\n                paqueteList.clear();\r\n                for (DataSnapshot dataSnapshot : snapshot.getChildren()) {\r\n                    Paquete paquete = dataSnapshot.getValue(Paquete.class);\r\n                    if (paquete != null) {\r\n                        paqueteList.add(paquete);\r\n                    }\r\n                }\r\n                paqueteAdapter.notifyDataSetChanged();\r\n            }\r\n\r\n            @Override\r\n            public void onCancelled(DatabaseError error) {\r\n                Toast.makeText(AdminActivity.this, \"Error al cargar los paquetes: \" + error.getMessage(), Toast.LENGTH_SHORT).show();\r\n            }\r\n        });\r\n    }\r\n\r\n    private void cargarConductores() {\r\n        conductoresRef.orderByChild(\"tipoUsuario\").equalTo(\"conductor\").addListenerForSingleValueEvent(new ValueEventListener() {\r\n            @Override\r\n            public void onDataChange(DataSnapshot snapshot) {\r\n                conductorIds.clear();\r\n                conductorNombres.clear();\r\n                for (DataSnapshot dataSnapshot : snapshot.getChildren()) {\r\n                    String conductorId = dataSnapshot.getKey();\r\n                    String nombreConductor = dataSnapshot.child(\"nombre\").getValue(String.class);\r\n                    Boolean disponibilidad = dataSnapshot.child(\"disponibilidad\").getValue(Boolean.class);\r\n\r\n\r\n                    if (conductorId != null && nombreConductor != null && disponibilidad != null && disponibilidad) {\r\n                        conductorIds.add(conductorId);\r\n                        conductorNombres.add(nombreConductor);\r\n                    }\r\n                }\r\n\r\n                ArrayAdapter<String> adapter = new ArrayAdapter<>(AdminActivity.this, android.R.layout.simple_spinner_item, conductorNombres);\r\n                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);\r\n                conductorSpinner.setAdapter(adapter);\r\n            }\r\n\r\n            @Override\r\n            public void onCancelled(DatabaseError error) {\r\n                Toast.makeText(AdminActivity.this, \"Error al cargar conductores: \" + error.getMessage(), Toast.LENGTH_SHORT).show();\r\n            }\r\n        });\r\n    }\r\n\r\n    private void mostrarDialogoDetallesPaquete(Paquete paquete) {\r\n        AlertDialog.Builder builder = new AlertDialog.Builder(this);\r\n        builder.setTitle(\"Detalles del Paquete\");\r\n\r\n        String mensaje = \"ID: \" + paquete.getIdPaquete() +\r\n                \"\\nEstado: \" + paquete.getEstado() +\r\n                \"\\nDirección de Entrega: \" + paquete.getDireccionEntrega() +\r\n                \"\\nPrioridad: \" + paquete.getPrioridad() +\r\n                \"\\nPeso: \" + paquete.getPeso();\r\n\r\n        builder.setMessage(mensaje);\r\n        builder.setPositiveButton(\"Cerrar\", null);\r\n        builder.show();\r\n    }\r\n\r\n    private void asignarPaquetesAConductor() {\r\n        int selectedPosition = conductorSpinner.getSelectedItemPosition();\r\n        if (selectedPosition == -1) {\r\n            Toast.makeText(this, \"Por favor, selecciona un conductor\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        String conductorId = conductorIds.get(selectedPosition);\r\n        String idListaPaquetesAsignados = paquetesRef.push().getKey(); // Genera una nueva ID para la lista\r\n\r\n        if (paquetesSeleccionados.isEmpty()) {\r\n            Toast.makeText(this, \"Selecciona al menos un paquete\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        List<String> paquetesIds = new ArrayList<>();\r\n        for (Paquete paquete : paquetesSeleccionados) {\r\n            paquete.setEstado(\"asignado\");\r\n            paquetesIds.add(paquete.getIdPaquete());\r\n            paquetesRef.child(paquete.getIdPaquete()).setValue(paquete);\r\n\r\n            // Crear el reporte para cada paquete asignado\r\n            crearReporte(paquete.getIdPaquete(), conductorId);\r\n        }\r\n\r\n        int numeroPaquetes = paquetesSeleccionados.size();\r\n\r\n        if (adminId == null) {\r\n            Toast.makeText(AdminActivity.this, \"Error al obtener el ID del administrador\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        // Incluye el campo 'aceptado' con valor false\r\n        AsignacionPaquetes asignacion = new AsignacionPaquetes(idListaPaquetesAsignados, paquetesIds, adminId, conductorId, numeroPaquetes, false);\r\n\r\n        // Realiza la asignación de paquetes\r\n        conductoresRef.child(conductorId).child(\"paquetesAsignados\").child(idListaPaquetesAsignados).setValue(asignacion)\r\n                .addOnCompleteListener(task -> {\r\n                    if (task.isSuccessful()) {\r\n                        // Cambiar la disponibilidad del conductor a false\r\n                        conductoresRef.child(conductorId).child(\"disponibilidad\").setValue(false);\r\n\r\n                        Toast.makeText(AdminActivity.this, \"Paquetes asignados correctamente\", Toast.LENGTH_SHORT).show();\r\n                        paquetesSeleccionados.clear();\r\n                        paqueteAdapter.notifyDataSetChanged();\r\n\r\n                        // Recargar la lista de conductores para reflejar el cambio\r\n                        cargarConductores();\r\n                    } else {\r\n                        Toast.makeText(AdminActivity.this, \"Error al asignar la lista de paquetes\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n    }\r\n\r\n\r\n    // Método para crear un reporte cuando se cambia el estado a \"asignado\"\r\n    private void crearReporte(String idPaquete, String conductorId) {\r\n        // Obtener la hora y la fecha actuales\r\n        String fecha = new SimpleDateFormat(\"dd/MM/yyyy\").format(Calendar.getInstance().getTime());\r\n        String hora = new SimpleDateFormat(\"HH:mm:ss\").format(Calendar.getInstance().getTime());\r\n\r\n        String idReporte = reportesRef.push().getKey(); // Genera una nueva ID para el reporte\r\n\r\n        Reporte reporte = new Reporte(idReporte, conductorId, idPaquete, \"asignado\", hora, fecha);\r\n\r\n        // Guardar el reporte en la base de datos\r\n        reportesRef.child(idReporte).setValue(reporte)\r\n                .addOnCompleteListener(task -> {\r\n                    if (task.isSuccessful()) {\r\n                        Toast.makeText(AdminActivity.this, \"Reporte creado correctamente para el paquete \" + idPaquete, Toast.LENGTH_SHORT).show();\r\n                    } else {\r\n                        Toast.makeText(AdminActivity.this, \"Error al crear el reporte\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                });\r\n    }\r\n\r\n    // Callback para obtener el email del administrador y retornar el ID\r\n    private void buscarIdAdministrador(String email, final AdminEmailCallback callback) {\r\n        DatabaseReference usuariosRef = FirebaseDatabase.getInstance().getReference(\"Usuarios\");\r\n        usuariosRef.orderByChild(\"correo\").equalTo(email).addListenerForSingleValueEvent(new ValueEventListener() {\r\n            @Override\r\n            public void onDataChange(DataSnapshot dataSnapshot) {\r\n                if (dataSnapshot.exists()) {\r\n                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {\r\n                        String adminId = snapshot.getKey(); // Obtener el ID del administrador\r\n                        callback.onCallback(adminId); // Pasa el ID al callback\r\n                    }\r\n                } else {\r\n                    Toast.makeText(AdminActivity.this, \"Administrador no encontrado\", Toast.LENGTH_SHORT).show();\r\n                }\r\n            }\r\n\r\n            @Override\r\n            public void onCancelled(DatabaseError databaseError) {\r\n                Toast.makeText(AdminActivity.this, \"Error al obtener datos\", Toast.LENGTH_SHORT).show();\r\n            }\r\n        });\r\n    }\r\n\r\n    // Interfaz para callback\r\n    public interface AdminEmailCallback {\r\n        void onCallback(String idAdministrador);\r\n    }\r\n\r\n    public void ir(View view) {\r\n        if (esAdministrador()) {\r\n            Intent intent = new Intent(this, CreateUserActivity.class);\r\n            startActivity(intent);\r\n        }\r\n    }\r\n\r\n    private boolean esAdministrador() {\r\n        if (adminEmail != null && adminId != null) {\r\n            return true;\r\n        }\r\n        return false;\r\n    }\r\n}\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/AdminActivity.java b/app/src/main/java/com/example/enviaya/AdminActivity.java
+--- a/app/src/main/java/com/example/enviaya/AdminActivity.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/AdminActivity.java	(date 1732847308929)
+@@ -33,8 +33,8 @@
+     private Button btnVerReportes;
+     private Spinner conductorSpinner;
+ 
+-    private Spinner spinnerEstadoPaquetes; // Spinner para filtrar estados
+-    private String estadoSeleccionado = "registrado"; // Estado inicial predeterminado
++    private Spinner spinnerEstadoPaquetes;
++    private String estadoSeleccionado = "registrado";
+ 
+     private DatabaseReference paquetesRef;
+     private DatabaseReference conductoresRef;
+@@ -51,27 +51,23 @@
+         super.onCreate(savedInstanceState);
+         setContentView(R.layout.activity_admin);
+ 
+-        // Inicializar el Spinner de estados
+         spinnerEstadoPaquetes = findViewById(R.id.spinnerEstadoPaquetes);
+ 
+-        // Configurar adaptador para el Spinner
+         ArrayAdapter<String> estadoAdapter = new ArrayAdapter<>(this,
+                 android.R.layout.simple_spinner_item,
+                 new String[]{"registrado", "pendiente", "Devuelto"});
+         estadoAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+         spinnerEstadoPaquetes.setAdapter(estadoAdapter);
+ 
+-        // Manejar cambios en la selección del Spinner
+         spinnerEstadoPaquetes.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+             @Override
+             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                 estadoSeleccionado = parent.getItemAtPosition(position).toString();
+-                cargarPaquetes(); // Recargar paquetes según el nuevo filtro
++                cargarPaquetes();
+             }
+ 
+             @Override
+             public void onNothingSelected(AdapterView<?> parent) {
+-                // No hacer nada
+             }
+         });
+ 
+@@ -88,7 +84,7 @@
+             buscarIdAdministrador(adminEmail, new AdminEmailCallback() {
+                 @Override
+                 public void onCallback(String idAdministrador) {
+-                    adminId = idAdministrador; // Guardamos el ID del administrador
++                    adminId = idAdministrador;
+                 }
+             });
+         }
+@@ -118,16 +114,13 @@
+ 
+         btnCreatePaquete.setOnClickListener(v -> {
+             if (adminEmail != null) {
+-                // Verificar si el usuario es administrador
+                 buscarIdAdministrador(adminEmail, new AdminEmailCallback() {
+                     @Override
+                     public void onCallback(String idAdministrador) {
+                         if (idAdministrador != null) {
+-                            // El usuario es administrador, proceder con la creación del paquete
+                             Intent intent = new Intent(AdminActivity.this, CreatePaqueteActivity.class);
+                             startActivity(intent);
+                         } else {
+-                            // El usuario no es administrador, mostrar mensaje
+                             Toast.makeText(AdminActivity.this, "Solo un administrador puede crear paquetes.", Toast.LENGTH_SHORT).show();
+                         }
+                     }
+@@ -139,7 +132,6 @@
+     }
+ 
+     private void cargarPaquetes() {
+-        // Filtrar paquetes según el estado seleccionado
+         paquetesRef.orderByChild("estado").equalTo(estadoSeleccionado).addValueEventListener(new ValueEventListener() {
+             @Override
+             public void onDataChange(DataSnapshot snapshot) {
+@@ -152,7 +144,6 @@
+                 }
+                 paqueteAdapter.notifyDataSetChanged();
+             }
+-
+             @Override
+             public void onCancelled(DatabaseError error) {
+                 Toast.makeText(AdminActivity.this, "Error al cargar los paquetes: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+@@ -171,18 +162,15 @@
+                     String nombreConductor = dataSnapshot.child("nombre").getValue(String.class);
+                     Boolean disponibilidad = dataSnapshot.child("disponibilidad").getValue(Boolean.class);
+ 
+-
+                     if (conductorId != null && nombreConductor != null && disponibilidad != null && disponibilidad) {
+                         conductorIds.add(conductorId);
+                         conductorNombres.add(nombreConductor);
+                     }
+                 }
+-
+                 ArrayAdapter<String> adapter = new ArrayAdapter<>(AdminActivity.this, android.R.layout.simple_spinner_item, conductorNombres);
+                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                 conductorSpinner.setAdapter(adapter);
+             }
+-
+             @Override
+             public void onCancelled(DatabaseError error) {
+                 Toast.makeText(AdminActivity.this, "Error al cargar conductores: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+@@ -193,13 +181,11 @@
+     private void mostrarDialogoDetallesPaquete(Paquete paquete) {
+         AlertDialog.Builder builder = new AlertDialog.Builder(this);
+         builder.setTitle("Detalles del Paquete");
+-
+         String mensaje = "ID: " + paquete.getIdPaquete() +
+                 "\nEstado: " + paquete.getEstado() +
+                 "\nDirección de Entrega: " + paquete.getDireccionEntrega() +
+                 "\nPrioridad: " + paquete.getPrioridad() +
+                 "\nPeso: " + paquete.getPeso();
+-
+         builder.setMessage(mensaje);
+         builder.setPositiveButton("Cerrar", null);
+         builder.show();
+@@ -211,47 +197,33 @@
+             Toast.makeText(this, "Por favor, selecciona un conductor", Toast.LENGTH_SHORT).show();
+             return;
+         }
+-
+         String conductorId = conductorIds.get(selectedPosition);
+         String idListaPaquetesAsignados = paquetesRef.push().getKey(); // Genera una nueva ID para la lista
+-
+         if (paquetesSeleccionados.isEmpty()) {
+             Toast.makeText(this, "Selecciona al menos un paquete", Toast.LENGTH_SHORT).show();
+             return;
+         }
+-
+         List<String> paquetesIds = new ArrayList<>();
+         for (Paquete paquete : paquetesSeleccionados) {
+             paquete.setEstado("asignado");
+             paquetesIds.add(paquete.getIdPaquete());
+             paquetesRef.child(paquete.getIdPaquete()).setValue(paquete);
+-
+-            // Crear el reporte para cada paquete asignado
+             crearReporte(paquete.getIdPaquete(), conductorId);
+         }
+-
+         int numeroPaquetes = paquetesSeleccionados.size();
+-
+         if (adminId == null) {
+             Toast.makeText(AdminActivity.this, "Error al obtener el ID del administrador", Toast.LENGTH_SHORT).show();
+             return;
+         }
+-
+-        // Incluye el campo 'aceptado' con valor false
+         AsignacionPaquetes asignacion = new AsignacionPaquetes(idListaPaquetesAsignados, paquetesIds, adminId, conductorId, numeroPaquetes, false);
+-
+-        // Realiza la asignación de paquetes
+         conductoresRef.child(conductorId).child("paquetesAsignados").child(idListaPaquetesAsignados).setValue(asignacion)
+                 .addOnCompleteListener(task -> {
+                     if (task.isSuccessful()) {
+-                        // Cambiar la disponibilidad del conductor a false
+                         conductoresRef.child(conductorId).child("disponibilidad").setValue(false);
+ 
+                         Toast.makeText(AdminActivity.this, "Paquetes asignados correctamente", Toast.LENGTH_SHORT).show();
+                         paquetesSeleccionados.clear();
+                         paqueteAdapter.notifyDataSetChanged();
+-
+-                        // Recargar la lista de conductores para reflejar el cambio
+                         cargarConductores();
+                     } else {
+                         Toast.makeText(AdminActivity.this, "Error al asignar la lista de paquetes", Toast.LENGTH_SHORT).show();
+@@ -259,18 +231,13 @@
+                 });
+     }
+ 
+-
+-    // Método para crear un reporte cuando se cambia el estado a "asignado"
+     private void crearReporte(String idPaquete, String conductorId) {
+-        // Obtener la hora y la fecha actuales
+         String fecha = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
+         String hora = new SimpleDateFormat("HH:mm:ss").format(Calendar.getInstance().getTime());
+ 
+-        String idReporte = reportesRef.push().getKey(); // Genera una nueva ID para el reporte
++        String idReporte = reportesRef.push().getKey();
+ 
+         Reporte reporte = new Reporte(idReporte, conductorId, idPaquete, "asignado", hora, fecha);
+-
+-        // Guardar el reporte en la base de datos
+         reportesRef.child(idReporte).setValue(reporte)
+                 .addOnCompleteListener(task -> {
+                     if (task.isSuccessful()) {
+@@ -281,7 +248,6 @@
+                 });
+     }
+ 
+-    // Callback para obtener el email del administrador y retornar el ID
+     private void buscarIdAdministrador(String email, final AdminEmailCallback callback) {
+         DatabaseReference usuariosRef = FirebaseDatabase.getInstance().getReference("Usuarios");
+         usuariosRef.orderByChild("correo").equalTo(email).addListenerForSingleValueEvent(new ValueEventListener() {
+@@ -289,8 +255,8 @@
+             public void onDataChange(DataSnapshot dataSnapshot) {
+                 if (dataSnapshot.exists()) {
+                     for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+-                        String adminId = snapshot.getKey(); // Obtener el ID del administrador
+-                        callback.onCallback(adminId); // Pasa el ID al callback
++                        String adminId = snapshot.getKey();
++                        callback.onCallback(adminId);
+                     }
+                 } else {
+                     Toast.makeText(AdminActivity.this, "Administrador no encontrado", Toast.LENGTH_SHORT).show();
+@@ -304,7 +270,6 @@
+         });
+     }
+ 
+-    // Interfaz para callback
+     public interface AdminEmailCallback {
+         void onCallback(String idAdministrador);
+     }
+Index: app/src/main/res/layout/activity_conductor.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:orientation=\"vertical\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"match_parent\"\r\n    android:padding=\"16dp\">\r\n\r\n    <!-- Título o encabezado -->\r\n    <TextView\r\n        android:id=\"@+id/encabezadoConductor\"\r\n        android:layout_width=\"wrap_content\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"Paquetes Asignados\"\r\n        android:textSize=\"16sp\"\r\n        android:textStyle=\"bold\"\r\n        android:layout_marginBottom=\"12dp\"/>\r\n\r\n    <!-- RecyclerView para mostrar la lista de paquetes asignados -->\r\n    <androidx.recyclerview.widget.RecyclerView\r\n        android:id=\"@+id/asignacionPaqueteRecyclerView\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"300dp\"\r\n        android:layout_weight=\"1\"\r\n        android:scrollbars=\"vertical\" />\r\n\r\n    <!-- Botón para aceptar todos los paquetes y cambiarlos a 'en tránsito' -->\r\n    <Button\r\n        android:id=\"@+id/btnConfirmarEntregas\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"48dp\"\r\n        android:layout_marginTop=\"12dp\"\r\n        android:text=\"Confirmar Entrega de todos los Paquetes\"\r\n        android:textColor=\"#FFFFFF\" /> <!-- Cambia el color según tu preferencia -->\r\n\r\n    <!-- Botón para ver detalles del paquete -->\r\n    <Button\r\n        android:id=\"@+id/botonVerDetalles\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"48dp\"\r\n        android:text=\"Ver Detalles\"\r\n        android:textColor=\"#FFFFFF\"\r\n        android:layout_marginTop=\"12dp\"\r\n        android:visibility=\"gone\"/> <!-- Oculto por defecto, se muestra según la selección del paquete -->\r\n\r\n    <!-- Botón para confirmar la entrega -->\r\n    <Button\r\n        android:id=\"@+id/botonConfirmarEntrega\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"48dp\"\r\n        android:text=\"Confirmar Entrega\"\r\n        android:textColor=\"#FFFFFF\"\r\n        android:layout_marginTop=\"8dp\"\r\n        android:visibility=\"gone\"/> <!-- Oculto por defecto, se muestra cuando el paquete es seleccionado -->\r\n\r\n</LinearLayout>\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/res/layout/activity_conductor.xml b/app/src/main/res/layout/activity_conductor.xml
+--- a/app/src/main/res/layout/activity_conductor.xml	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/res/layout/activity_conductor.xml	(date 1732780793010)
+@@ -6,16 +6,21 @@
+     android:padding="16dp">
+ 
+     <!-- Título o encabezado -->
++
++    <!-- RecyclerView para mostrar la lista de paquetes asignados -->
++
+     <TextView
+         android:id="@+id/encabezadoConductor"
+-        android:layout_width="wrap_content"
++        android:layout_width="match_parent"
+         android:layout_height="wrap_content"
++        android:layout_marginBottom="12dp"
++        android:paddingBottom="8dp"
+         android:text="Paquetes Asignados"
+-        android:textSize="16sp"
+-        android:textStyle="bold"
+-        android:layout_marginBottom="12dp"/>
++        android:textAlignment="center"
++        android:textColor="#00796B"
++        android:textSize="20sp"
++        android:textStyle="bold" />
+ 
+-    <!-- RecyclerView para mostrar la lista de paquetes asignados -->
+     <androidx.recyclerview.widget.RecyclerView
+         android:id="@+id/asignacionPaqueteRecyclerView"
+         android:layout_width="match_parent"
+@@ -29,6 +34,7 @@
+         android:layout_width="match_parent"
+         android:layout_height="48dp"
+         android:layout_marginTop="12dp"
++        android:backgroundTint="#00796B"
+         android:text="Confirmar Entrega de todos los Paquetes"
+         android:textColor="#FFFFFF" /> <!-- Cambia el color según tu preferencia -->
+ 
+Index: app/src/main/java/com/example/enviaya/Reporte.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.enviaya;\r\n\r\npublic class Reporte {\r\n    private String idReporte;\r\n    private String idConductor;\r\n    private String idPaquete;\r\n    private String estado;\r\n    private String hora;\r\n    private String fecha;\r\n\r\n    // Constructor vacío necesario para Firebase\r\n    public Reporte() {}\r\n\r\n    // Constructor con parámetros\r\n    public Reporte(String idReporte, String idConductor, String idPaquete, String estado, String hora, String fecha) {\r\n        this.idReporte = idReporte;\r\n        this.idConductor = idConductor;\r\n        this.idPaquete = idPaquete;\r\n        this.estado = estado;\r\n        this.hora = hora;\r\n        this.fecha = fecha;\r\n    }\r\n\r\n    // Getters y Setters\r\n    public String getIdReporte() {\r\n        return idReporte;\r\n    }\r\n\r\n    public void setIdReporte(String idReporte) {\r\n        this.idReporte = idReporte;\r\n    }\r\n\r\n    public String getIdConductor() {\r\n        return idConductor;\r\n    }\r\n\r\n    public void setIdConductor(String idConductor) {\r\n        this.idConductor = idConductor;\r\n    }\r\n\r\n    public String getIdPaquete() {\r\n        return idPaquete;\r\n    }\r\n\r\n    public void setIdPaquete(String idPaquete) {\r\n        this.idPaquete = idPaquete;\r\n    }\r\n\r\n    public String getEstado() {\r\n        return estado;\r\n    }\r\n\r\n    public void setEstado(String estado) {\r\n        this.estado = estado;\r\n    }\r\n\r\n    public String getHora() {\r\n        return hora;\r\n    }\r\n\r\n    public void setHora(String hora) {\r\n        this.hora = hora;\r\n    }\r\n\r\n    public String getFecha() {\r\n        return fecha;\r\n    }\r\n\r\n    public void setFecha(String fecha) {\r\n        this.fecha = fecha;\r\n    }\r\n}\r\n\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/enviaya/Reporte.java b/app/src/main/java/com/example/enviaya/Reporte.java
+--- a/app/src/main/java/com/example/enviaya/Reporte.java	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/java/com/example/enviaya/Reporte.java	(date 1732882826887)
+@@ -8,10 +8,8 @@
+     private String hora;
+     private String fecha;
+ 
+-    // Constructor vacío necesario para Firebase
+     public Reporte() {}
+ 
+-    // Constructor con parámetros
+     public Reporte(String idReporte, String idConductor, String idPaquete, String estado, String hora, String fecha) {
+         this.idReporte = idReporte;
+         this.idConductor = idConductor;
+@@ -21,7 +19,6 @@
+         this.fecha = fecha;
+     }
+ 
+-    // Getters y Setters
+     public String getIdReporte() {
+         return idReporte;
+     }
+Index: app/src/main/res/layout/activity_create_user.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<androidx.constraintlayout.widget.ConstraintLayout\r\n    xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:app=\"http://schemas.android.com/apk/res-auto\"\r\n    xmlns:tools=\"http://schemas.android.com/tools\"\r\n    android:id=\"@+id/main\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"match_parent\"\r\n    tools:context=\".CreateUserActivity\">\r\n\r\n    <!-- Toolbar -->\r\n    <androidx.appcompat.widget.Toolbar\r\n        android:id=\"@+id/toolbar\"\r\n        android:layout_width=\"0dp\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:background=\"?attr/colorPrimary\"\r\n        android:title=\"Crear Usuario\"\r\n        app:layout_constraintTop_toTopOf=\"parent\"\r\n        app:layout_constraintStart_toStartOf=\"parent\"\r\n        app:layout_constraintEnd_toEndOf=\"parent\" />\r\n\r\n    <!-- Botones para alternar entre formularios -->\r\n    <LinearLayout\r\n        android:id=\"@+id/buttonContainer\"\r\n        android:layout_width=\"0dp\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:orientation=\"horizontal\"\r\n        android:gravity=\"center\"\r\n        app:layout_constraintTop_toBottomOf=\"@id/toolbar\"\r\n        app:layout_constraintStart_toStartOf=\"parent\"\r\n        app:layout_constraintEnd_toEndOf=\"parent\">\r\n\r\n        <Button\r\n            android:id=\"@+id/btnAdmin\"\r\n            android:layout_width=\"0dp\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_weight=\"1\"\r\n            android:text=\"Crear Admin\" />\r\n\r\n        <Button\r\n            android:id=\"@+id/btnConductor\"\r\n            android:layout_width=\"0dp\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_weight=\"1\"\r\n            android:text=\"Crear Conductor\" />\r\n    </LinearLayout>\r\n\r\n    <!-- Contenedor para el formulario de administrador -->\r\n    <LinearLayout\r\n        android:id=\"@+id/adminForm\"\r\n        android:layout_width=\"0dp\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:orientation=\"vertical\"\r\n        android:visibility=\"gone\"\r\n        app:layout_constraintTop_toBottomOf=\"@id/buttonContainer\"\r\n        app:layout_constraintStart_toStartOf=\"parent\"\r\n        app:layout_constraintEnd_toEndOf=\"parent\">\r\n\r\n        <EditText\r\n            android:id=\"@+id/nombreAdminEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Nombre\" />\r\n\r\n        <EditText\r\n            android:id=\"@+id/correoAdminEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Correo\" />\r\n\r\n        <EditText\r\n            android:id=\"@+id/telefonoAdminEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Teléfono\" />\r\n\r\n        <!-- El campo de contraseña ha sido eliminado, ya que no es necesario para la creación del usuario -->\r\n\r\n        <TextView\r\n            android:id=\"@+id/infoAdminText\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"El administrador no necesita asignar una contraseña. El usuario recibirá un correo de verificación.\"\r\n            android:layout_marginTop=\"10dp\"\r\n            android:textSize=\"14sp\"\r\n            android:textColor=\"#757575\" />\r\n\r\n        <Button\r\n            android:id=\"@+id/crearAdminButton\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"Crear Administrador\"\r\n            app:layout_constraintTop_toBottomOf=\"@+id/telefonoAdminEditText\"\r\n            app:layout_constraintStart_toStartOf=\"parent\"\r\n            app:layout_constraintEnd_toEndOf=\"parent\" />\r\n    </LinearLayout>\r\n\r\n    <!-- Contenedor para el formulario de conductor -->\r\n    <LinearLayout\r\n        android:id=\"@+id/conductorForm\"\r\n        android:layout_width=\"0dp\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:orientation=\"vertical\"\r\n        android:visibility=\"gone\"\r\n        app:layout_constraintTop_toBottomOf=\"@id/buttonContainer\"\r\n        app:layout_constraintStart_toStartOf=\"parent\"\r\n        app:layout_constraintEnd_toEndOf=\"parent\">\r\n\r\n        <EditText\r\n            android:id=\"@+id/nombreConductorEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Nombre\" />\r\n\r\n        <EditText\r\n            android:id=\"@+id/correoConductorEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Correo\" />\r\n\r\n        <EditText\r\n            android:id=\"@+id/telefonoConductorEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Teléfono\" />\r\n\r\n        <EditText\r\n            android:id=\"@+id/matriculaEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Matrícula Vehículo\" />\r\n\r\n        <EditText\r\n            android:id=\"@+id/licenciaEditText\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:hint=\"Tipo de Licencia\" />\r\n\r\n        <!-- El campo de contraseña ha sido eliminado para el conductor -->\r\n\r\n        <TextView\r\n            android:id=\"@+id/infoConductorText\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"El conductor no necesita asignar una contraseña. El usuario recibirá un correo de verificación.\"\r\n            android:layout_marginTop=\"10dp\"\r\n            android:textSize=\"14sp\"\r\n            android:textColor=\"#757575\" />\r\n\r\n        <Button\r\n            android:id=\"@+id/crearConductorButton\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"Crear Conductor\"\r\n            app:layout_constraintTop_toBottomOf=\"@+id/licenciaEditText\"\r\n            app:layout_constraintStart_toStartOf=\"parent\"\r\n            app:layout_constraintEnd_toEndOf=\"parent\" />\r\n    </LinearLayout>\r\n\r\n</androidx.constraintlayout.widget.ConstraintLayout>\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/res/layout/activity_create_user.xml b/app/src/main/res/layout/activity_create_user.xml
+--- a/app/src/main/res/layout/activity_create_user.xml	(revision 76c22f74481fc56e9a8d267b8cefafa13c4fa029)
++++ b/app/src/main/res/layout/activity_create_user.xml	(date 1732780589673)
+@@ -13,7 +13,7 @@
+         android:id="@+id/toolbar"
+         android:layout_width="0dp"
+         android:layout_height="wrap_content"
+-        android:background="?attr/colorPrimary"
++        android:background="#1E3A8A"
+         android:title="Crear Usuario"
+         app:layout_constraintTop_toTopOf="parent"
+         app:layout_constraintStart_toStartOf="parent"
+@@ -34,6 +34,7 @@
+             android:id="@+id/btnAdmin"
+             android:layout_width="0dp"
+             android:layout_height="wrap_content"
++            android:backgroundTint="#1E3A8A"
+             android:layout_weight="1"
+             android:text="Crear Admin" />
+ 
+@@ -41,6 +42,7 @@
+             android:id="@+id/btnConductor"
+             android:layout_width="0dp"
+             android:layout_height="wrap_content"
++            android:backgroundTint="#1E3A8A"
+             android:layout_weight="1"
+             android:text="Crear Conductor" />
+     </LinearLayout>
+@@ -152,6 +154,7 @@
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:text="Crear Conductor"
++            android:backgroundTint="#1E3A8A"
+             app:layout_constraintTop_toBottomOf="@+id/licenciaEditText"
+             app:layout_constraintStart_toStartOf="parent"
+             app:layout_constraintEnd_toEndOf="parent" />

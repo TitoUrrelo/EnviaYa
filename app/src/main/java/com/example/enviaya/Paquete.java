@@ -3,17 +3,15 @@ package com.example.enviaya;
 public class Paquete {
 
     private String idPaquete;
-    private String estado; // Puede ser "pendiente", "entregado", "devuelto"
+    private String estado;
     private String direccionEntrega;
-    private String prioridad; // Puede ser "alta", "media", "baja"
-    private double peso; // Peso del paquete en kilogramos
-    private String fotoUrl; // URL de la foto del paquete
+    private String prioridad;
+    private double peso;
+    private String fotoUrl;
 
-    // Constructor vacío (requerido para Firebase)
     public Paquete() {
     }
 
-    // Constructor con parámetros
     public Paquete(String idPaquete, String estado, String direccionEntrega, String prioridad, double peso, String fotoUrl) {
         this.idPaquete = idPaquete;
         this.estado = estado;
@@ -22,8 +20,6 @@ public class Paquete {
         this.peso = peso;
         this.fotoUrl = fotoUrl;
     }
-
-    // Getters y setters
 
     public String getIdPaquete() {
         return idPaquete;

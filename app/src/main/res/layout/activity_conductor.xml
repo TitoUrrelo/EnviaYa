@@ -6,16 +6,21 @@
     android:padding="16dp">
 
     <!-- Título o encabezado -->
-    <TextView
-        android:id="@+id/encabezadoConductor"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Paquetes Asignados"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="12dp"/>
 
     <!-- RecyclerView para mostrar la lista de paquetes asignados -->
+
+    <TextView
+        android:id="@+id/encabezadoConductor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:paddingBottom="8dp"
+        android:text="Paquetes Asignados"
+        android:textAlignment="center"
+        android:textColor="#00796B"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/asignacionPaqueteRecyclerView"
         android:layout_width="match_parent"
@@ -29,6 +34,7 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="12dp"
+        android:backgroundTint="#00796B"
         android:text="Confirmar Entrega de todos los Paquetes"
         android:textColor="#FFFFFF" /> <!-- Cambia el color según tu preferencia -->
 

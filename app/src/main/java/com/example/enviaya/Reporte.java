@@ -8,10 +8,8 @@ public class Reporte {
     private String hora;
     private String fecha;
 
-    // Constructor vacío necesario para Firebase
     public Reporte() {}
 
-    // Constructor con parámetros
     public Reporte(String idReporte, String idConductor, String idPaquete, String estado, String hora, String fecha) {
         this.idReporte = idReporte;
         this.idConductor = idConductor;
@@ -21,7 +19,6 @@ public class Reporte {
         this.fecha = fecha;
     }
 
-    // Getters y Setters
     public String getIdReporte() {
         return idReporte;
     }
