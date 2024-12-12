@@ -33,8 +33,8 @@ public class AdminActivity extends AppCompatActivity {
     private Button btnVerReportes;
     private Spinner conductorSpinner;
 
-    private Spinner spinnerEstadoPaquetes; // Spinner para filtrar estados
-    private String estadoSeleccionado = "registrado"; // Estado inicial predeterminado
+    private Spinner spinnerEstadoPaquetes;
+    private String estadoSeleccionado = "registrado";
 
     private DatabaseReference paquetesRef;
     private DatabaseReference conductoresRef;
@@ -51,27 +51,23 @@ public class AdminActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
 
-        // Inicializar el Spinner de estados
         spinnerEstadoPaquetes = findViewById(R.id.spinnerEstadoPaquetes);
 
-        // Configurar adaptador para el Spinner
         ArrayAdapter<String> estadoAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item,
                 new String[]{"registrado", "pendiente", "Devuelto"});
         estadoAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerEstadoPaquetes.setAdapter(estadoAdapter);
 
-        // Manejar cambios en la selección del Spinner
         spinnerEstadoPaquetes.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 estadoSeleccionado = parent.getItemAtPosition(position).toString();
-                cargarPaquetes(); // Recargar paquetes según el nuevo filtro
+                cargarPaquetes();
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                // No hacer nada
             }
         });
 
@@ -88,7 +84,7 @@ public class AdminActivity extends AppCompatActivity {
             buscarIdAdministrador(adminEmail, new AdminEmailCallback() {
                 @Override
                 public void onCallback(String idAdministrador) {
-                    adminId = idAdministrador; // Guardamos el ID del administrador
+                    adminId = idAdministrador;
                 }
             });
         }
@@ -118,16 +114,13 @@ public class AdminActivity extends AppCompatActivity {
 
         btnCreatePaquete.setOnClickListener(v -> {
             if (adminEmail != null) {
-                // Verificar si el usuario es administrador
                 buscarIdAdministrador(adminEmail, new AdminEmailCallback() {
                     @Override
                     public void onCallback(String idAdministrador) {
                         if (idAdministrador != null) {
-                            // El usuario es administrador, proceder con la creación del paquete
                             Intent intent = new Intent(AdminActivity.this, CreatePaqueteActivity.class);
                             startActivity(intent);
                         } else {
-                            // El usuario no es administrador, mostrar mensaje
                             Toast.makeText(AdminActivity.this, "Solo un administrador puede crear paquetes.", Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -139,7 +132,6 @@ public class AdminActivity extends AppCompatActivity {
     }
 
     private void cargarPaquetes() {
-        // Filtrar paquetes según el estado seleccionado
         paquetesRef.orderByChild("estado").equalTo(estadoSeleccionado).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
@@ -152,7 +144,6 @@ public class AdminActivity extends AppCompatActivity {
                 }
                 paqueteAdapter.notifyDataSetChanged();
             }
-
             @Override
             public void onCancelled(DatabaseError error) {
                 Toast.makeText(AdminActivity.this, "Error al cargar los paquetes: " + error.getMessage(), Toast.LENGTH_SHORT).show();
@@ -171,18 +162,15 @@ public class AdminActivity extends AppCompatActivity {
                     String nombreConductor = dataSnapshot.child("nombre").getValue(String.class);
                     Boolean disponibilidad = dataSnapshot.child("disponibilidad").getValue(Boolean.class);
 
-
                     if (conductorId != null && nombreConductor != null && disponibilidad != null && disponibilidad) {
                         conductorIds.add(conductorId);
                         conductorNombres.add(nombreConductor);
                     }
                 }
-
                 ArrayAdapter<String> adapter = new ArrayAdapter<>(AdminActivity.this, android.R.layout.simple_spinner_item, conductorNombres);
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                 conductorSpinner.setAdapter(adapter);
             }
-
             @Override
             public void onCancelled(DatabaseError error) {
                 Toast.makeText(AdminActivity.this, "Error al cargar conductores: " + error.getMessage(), Toast.LENGTH_SHORT).show();
@@ -193,13 +181,11 @@ public class AdminActivity extends AppCompatActivity {
     private void mostrarDialogoDetallesPaquete(Paquete paquete) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Detalles del Paquete");
-
         String mensaje = "ID: " + paquete.getIdPaquete() +
                 "\nEstado: " + paquete.getEstado() +
                 "\nDirección de Entrega: " + paquete.getDireccionEntrega() +
                 "\nPrioridad: " + paquete.getPrioridad() +
                 "\nPeso: " + paquete.getPeso();
-
         builder.setMessage(mensaje);
         builder.setPositiveButton("Cerrar", null);
         builder.show();
@@ -211,47 +197,33 @@ public class AdminActivity extends AppCompatActivity {
             Toast.makeText(this, "Por favor, selecciona un conductor", Toast.LENGTH_SHORT).show();
             return;
         }
-
         String conductorId = conductorIds.get(selectedPosition);
         String idListaPaquetesAsignados = paquetesRef.push().getKey(); // Genera una nueva ID para la lista
-
         if (paquetesSeleccionados.isEmpty()) {
             Toast.makeText(this, "Selecciona al menos un paquete", Toast.LENGTH_SHORT).show();
             return;
         }
-
         List<String> paquetesIds = new ArrayList<>();
         for (Paquete paquete : paquetesSeleccionados) {
             paquete.setEstado("asignado");
             paquetesIds.add(paquete.getIdPaquete());
             paquetesRef.child(paquete.getIdPaquete()).setValue(paquete);
-
-            // Crear el reporte para cada paquete asignado
             crearReporte(paquete.getIdPaquete(), conductorId);
         }
-
         int numeroPaquetes = paquetesSeleccionados.size();
-
         if (adminId == null) {
             Toast.makeText(AdminActivity.this, "Error al obtener el ID del administrador", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // Incluye el campo 'aceptado' con valor false
         AsignacionPaquetes asignacion = new AsignacionPaquetes(idListaPaquetesAsignados, paquetesIds, adminId, conductorId, numeroPaquetes, false);
-
-        // Realiza la asignación de paquetes
         conductoresRef.child(conductorId).child("paquetesAsignados").child(idListaPaquetesAsignados).setValue(asignacion)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        // Cambiar la disponibilidad del conductor a false
                         conductoresRef.child(conductorId).child("disponibilidad").setValue(false);
 
                         Toast.makeText(AdminActivity.this, "Paquetes asignados correctamente", Toast.LENGTH_SHORT).show();
                         paquetesSeleccionados.clear();
                         paqueteAdapter.notifyDataSetChanged();
-
-                        // Recargar la lista de conductores para reflejar el cambio
                         cargarConductores();
                     } else {
                         Toast.makeText(AdminActivity.this, "Error al asignar la lista de paquetes", Toast.LENGTH_SHORT).show();
@@ -259,18 +231,13 @@ public class AdminActivity extends AppCompatActivity {
                 });
     }
 
-
-    // Método para crear un reporte cuando se cambia el estado a "asignado"
     private void crearReporte(String idPaquete, String conductorId) {
-        // Obtener la hora y la fecha actuales
         String fecha = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
         String hora = new SimpleDateFormat("HH:mm:ss").format(Calendar.getInstance().getTime());
 
-        String idReporte = reportesRef.push().getKey(); // Genera una nueva ID para el reporte
+        String idReporte = reportesRef.push().getKey();
 
         Reporte reporte = new Reporte(idReporte, conductorId, idPaquete, "asignado", hora, fecha);
-
-        // Guardar el reporte en la base de datos
         reportesRef.child(idReporte).setValue(reporte)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
@@ -281,7 +248,6 @@ public class AdminActivity extends AppCompatActivity {
                 });
     }
 
-    // Callback para obtener el email del administrador y retornar el ID
     private void buscarIdAdministrador(String email, final AdminEmailCallback callback) {
         DatabaseReference usuariosRef = FirebaseDatabase.getInstance().getReference("Usuarios");
         usuariosRef.orderByChild("correo").equalTo(email).addListenerForSingleValueEvent(new ValueEventListener() {
@@ -289,8 +255,8 @@ public class AdminActivity extends AppCompatActivity {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
                     for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                        String adminId = snapshot.getKey(); // Obtener el ID del administrador
-                        callback.onCallback(adminId); // Pasa el ID al callback
+                        String adminId = snapshot.getKey();
+                        callback.onCallback(adminId);
                     }
                 } else {
                     Toast.makeText(AdminActivity.this, "Administrador no encontrado", Toast.LENGTH_SHORT).show();
@@ -304,7 +270,6 @@ public class AdminActivity extends AppCompatActivity {
         });
     }
 
-    // Interfaz para callback
     public interface AdminEmailCallback {
         void onCallback(String idAdministrador);
     }

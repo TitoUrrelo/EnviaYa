@@ -3,16 +3,14 @@ package com.example.enviaya;
 public class Problema {
     private String idProblema;
     private String idConductor;
-    private String idPaquete; // Puede ser nulo si no está asociado a un paquete
+    private String idPaquete;
     private String descripcion;
     private String hora;
     private String fecha;
 
-    // Constructor vacío requerido para Firebase
     public Problema() {
     }
 
-    // Constructor con todos los parámetros
     public Problema(String idProblema, String idConductor, String idPaquete, String descripcion, String hora, String fecha) {
         this.idProblema = idProblema;
         this.idConductor = idConductor;
@@ -22,7 +20,6 @@ public class Problema {
         this.fecha = fecha;
     }
 
-    // Getters y Setters
     public String getIdProblema() {
         return idProblema;
     }

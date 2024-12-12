@@ -8,16 +8,14 @@ public class Usuario {
     private String telefono;
     private String tipoUsuario; // "admin" o "conductor"
 
-    // Campos específicos para conductores
     private String matriculaVehiculo;
     private String tipoLicencia;
     private Boolean disponibilidad;
 
-    // Constructor vacío (requerido para Firebase)
     public Usuario() {
     }
 
-    // Constructor para administradores
+    //administradores
     public Usuario(String id, String nombre, String correo, String telefono, String tipoUsuario) {
         this.id = id;
         this.nombre = nombre;
@@ -29,7 +27,7 @@ public class Usuario {
         this.disponibilidad = null; // No aplica a administradores
     }
 
-    // Constructor para conductores
+    // conductores
     public Usuario(String id, String nombre, String correo, String telefono, String tipoUsuario,
                    String matriculaVehiculo, String tipoLicencia, Boolean disponibilidad) {
         this.id = id;
@@ -42,7 +40,6 @@ public class Usuario {
         this.disponibilidad = disponibilidad;
     }
 
-    // Getters y Setters
 
     public String getId() {
         return id;
